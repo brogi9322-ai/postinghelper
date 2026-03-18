@@ -38,7 +38,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
   if (SHOPPING_DOMAINS.some((d) => url.includes(d))) {
     currentPageType = "shopping";
-    // textContent 사용으로 XSS 방지
     pageTypeEl.textContent = "🛍️ 스마트스토어 감지됨";
     affiliateWrap.classList.remove("hidden");
     btnGenerate.disabled = false;

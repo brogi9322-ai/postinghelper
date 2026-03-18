@@ -68,25 +68,27 @@ async function handleGeneratePosting({ pageType, data }, sendResponse) {
   try {
     const endpoint = pageType === "shopping" ? "/api/shopping" : "/api/place";
 
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data }),
-    });
+    let posting = null;
 
-    const json = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      sendResponse({ success: false, error: String(json.error || "API 오류") });
-      return;
+    // Claude API 호출 시도 — 실패 시 raw 데이터 포맷으로 폴백
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.posting && typeof json.posting === "object") {
+        posting = json.posting;
+      }
+    } catch {
+      // 네트워크 오류 or 서버 미배포 → 폴백
     }
 
-    if (!json.posting || typeof json.posting !== "object") {
-      sendResponse({ success: false, error: "응답 형식 오류" });
-      return;
+    // API 키 없음 / 서버 오류 → 수집 데이터 직접 포맷
+    if (!posting) {
+      posting = formatRawPosting(data, pageType);
     }
-
-    const { posting } = json;
 
     // 이미지 저장 (Vercel Blob)
     const imageUrls = posting.sections
@@ -148,6 +150,77 @@ async function handleStartPosting({ posting }, sender, sendResponse) {
     isPosting = false;
     sendResponse({ success: false, error: String(err.message || "블로그 이동 실패") });
   }
+}
+
+// ---- API 없을 때 수집 데이터 → 포스팅 포맷 변환 ----
+function formatRawPosting(data, pageType) {
+  if (pageType === "shopping") {
+    const images = Array.isArray(data.images) ? data.images : [];
+    const sections = [];
+
+    // 도입부
+    const intro = [
+      `${String(data.productName || "")}`,
+      "",
+      String(data.description || "").slice(0, 500),
+    ].join("\n");
+    sections.push({ type: "text", content: intro });
+
+    // 이미지 1
+    if (images[0]) sections.push({ type: "image", content: images[0] });
+
+    // 가격/배송 정보
+    const priceLines = [];
+    if (data.price?.discounted) {
+      priceLines.push(`판매가: ${Number(data.price.discounted).toLocaleString()}원`);
+    }
+    if (data.price?.original) {
+      priceLines.push(`정가: ${Number(data.price.original).toLocaleString()}원`);
+    }
+    if (data.shipping) priceLines.push(`배송: ${String(data.shipping)}`);
+    if (data.seller) priceLines.push(`판매자: ${String(data.seller)}`);
+    if (priceLines.length) sections.push({ type: "text", content: priceLines.join("\n") });
+
+    // 이미지 2
+    if (images[1]) sections.push({ type: "image", content: images[1] });
+
+    // 리뷰 요약
+    const highlights = Array.isArray(data.reviews?.highlights) ? data.reviews.highlights : [];
+    if (highlights.length) {
+      const reviewText = [
+        `평점: ${data.reviews.rating || "-"}점 (${data.reviews.count || 0}개 리뷰)`,
+        "",
+        highlights.slice(0, 5).map((h) => `• ${String(h)}`).join("\n"),
+      ].join("\n");
+      sections.push({ type: "text", content: reviewText });
+    }
+
+    // 나머지 이미지 (최대 4장 추가)
+    images.slice(2, 6).forEach((img) => sections.push({ type: "image", content: img }));
+
+    // 구매 안내 + 제휴 링크
+    if (data.affiliateUrl) {
+      sections.push({
+        type: "text",
+        content: `구매를 원하신다면 아래 링크를 확인해보세요!\n${String(data.affiliateUrl)}`,
+      });
+    }
+
+    // 태그: 상품명 단어 분리
+    const tags = String(data.productName || "")
+      .split(/\s+/)
+      .filter((t) => t.length > 1)
+      .slice(0, 8);
+
+    return { title: String(data.productName || "상품 포스팅"), sections, tags };
+  }
+
+  // 플레이스 폴백 (추후 Sprint 7에서 고도화)
+  return {
+    title: String(data.name || "포스팅"),
+    sections: [{ type: "text", content: String(data.description || "") }],
+    tags: [],
+  };
 }
 
 // ---- 유틸 ----

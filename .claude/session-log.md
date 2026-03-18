@@ -149,6 +149,14 @@
 
 ---
 
+### [17] "ai api키 없으면 수집한내용으로 글 채우기, 키 있으면 글 만들어서 채우기 이렇게 분기처리해야지"
+**작업**: service-worker.js에 API 키 유무 분기 처리
+- Claude API 호출 성공 → Claude가 쓴 포스팅 사용
+- 실패(네트워크 오류/API 키 없음) → `formatRawPosting()`으로 수집 데이터 직접 포맷
+- `formatRawPosting()`: 상품명/설명/가격/배송/리뷰/이미지/제휴링크 → 섹션 조립
+- 이전에 추가했던 "데이터 확인" 버튼 제거 (팝업 단순화)
+- **변경 파일**: `extension/background/service-worker.js`, `extension/popup/popup.html`, `extension/popup/popup.css`, `extension/popup/popup.js`
+
 ### [16] "자 이제 다음 작업 진행하자" + "스마트원 사용할거야. 이미지 삽입은 무조건 파일 업로드로 해야돼."
 **작업**: Sprint 5 — 네이버 블로그 스마트에디터 ONE 자동 포스팅
 - `extension/content/naverblog.js` 전면 구현
