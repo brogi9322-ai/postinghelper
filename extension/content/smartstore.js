@@ -247,30 +247,15 @@ async function collectDetailImages() {
 // 리뷰 수집
 // ============================================================
 async function clickReviewTab() {
-  const reviewTabSelectors = [
-    "[class*='reviewTab']",
-    "button[class*='tab']:has(span:contains('리뷰'))",
-    "a[class*='tab'][href*='review']",
-    "[class*='_2pgHN-ntx6']:nth-child(3)",
-    "li[class*='tab'] button",
-  ];
-
-  for (const sel of reviewTabSelectors) {
-    const tabs = document.querySelectorAll(sel);
-    for (const tab of tabs) {
-      if (tab.textContent?.includes("리뷰")) {
-        tab.click();
-        return;
-      }
-    }
-  }
-
-  // 텍스트로 찾기 (fallback)
-  const allButtons = document.querySelectorAll("button, a, li");
-  for (const el of allButtons) {
-    if (el.textContent?.trim() === "리뷰" || el.textContent?.includes("리뷰")) {
+  // ":contains()" 는 표준 CSS 미지원 — 텍스트 기반으로만 탐색
+  const candidates = document.querySelectorAll(
+    "[class*='reviewTab'], [class*='tab'] button, [class*='tab'] a, li[class*='tab'], button, a"
+  );
+  for (const el of candidates) {
+    const text = el.textContent?.trim() || "";
+    if (text === "리뷰" || text.startsWith("리뷰")) {
       el.click();
-      break;
+      return;
     }
   }
 }
