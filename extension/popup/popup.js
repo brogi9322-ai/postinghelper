@@ -11,9 +11,20 @@ const affiliateWrap = document.getElementById("affiliate-wrap");
 const affiliateUrlInput = document.getElementById("affiliate-url");
 
 const SHOPPING_DOMAINS = ["smartstore.naver.com", "brand.naver.com", "brandconnect.naver.com"];
+const ALLOWED_MESSAGE_TYPES = ["POSTING_PROGRESS", "POSTING_DONE", "ERROR"];
 
-let currentPageType = null; // "shopping" | "place" | null
+let currentPageType = null;
 let generatedPosting = null;
+
+// ---- URL 검증 ----
+function isValidHttpsUrl(str) {
+  try {
+    const url = new URL(str);
+    return url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 // ---- 현재 탭 URL로 페이지 종류 감지 ----
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -21,8 +32,9 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
   if (SHOPPING_DOMAINS.some((d) => url.includes(d))) {
     currentPageType = "shopping";
+    // textContent 사용으로 XSS 방지
     pageTypeEl.textContent = "🛍️ 스마트스토어 감지됨";
-    affiliateWrap.classList.remove("hidden"); // 제휴 링크 입력 표시
+    affiliateWrap.classList.remove("hidden");
     btnGenerate.disabled = false;
   } else if (url.includes("map.naver.com")) {
     currentPageType = "place";
@@ -39,9 +51,27 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 btnGenerate.addEventListener("click", async () => {
   const affiliateUrl = affiliateUrlInput?.value?.trim() || "";
 
-  if (currentPageType === "shopping" && !affiliateUrl) {
-    setStatus("error", "제휴 링크를 입력해주세요.");
-    return;
+  // 제휴 링크 검증
+  if (currentPageType === "shopping") {
+    if (!affiliateUrl) {
+      setStatus("error", "제휴 링크를 입력해주세요.");
+      return;
+    }
+    if (!isValidHttpsUrl(affiliateUrl)) {
+      setStatus("error", "유효한 HTTPS URL을 입력해주세요.");
+      return;
+    }
+    // 네이버 도메인만 허용
+    try {
+      const parsed = new URL(affiliateUrl);
+      if (!parsed.hostname.endsWith("naver.com") && !parsed.hostname.endsWith("naver.me")) {
+        setStatus("error", "네이버 제휴 링크만 입력 가능합니다.");
+        return;
+      }
+    } catch {
+      setStatus("error", "유효하지 않은 URL입니다.");
+      return;
+    }
   }
 
   setStatus("info", "데이터 수집 중...");
@@ -54,7 +84,7 @@ btnGenerate.addEventListener("click", async () => {
     tab.id,
     {
       type: currentPageType === "shopping" ? "COLLECT_SHOPPING" : "COLLECT_PLACE",
-      affiliateUrl, // 제휴 링크를 content script로 전달
+      affiliateUrl,
     },
     (response) => {
       if (chrome.runtime.lastError || !response?.success) {
@@ -111,9 +141,15 @@ btnPost.addEventListener("click", async () => {
 });
 
 // ---- background에서 오는 진행 상황 수신 ----
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender) => {
+  // 같은 익스텐션에서 온 메시지만 처리
+  if (sender.id !== chrome.runtime.id) return;
+  // 허용된 타입만 처리
+  if (!ALLOWED_MESSAGE_TYPES.includes(message.type)) return;
+  if (!message.payload || typeof message.payload !== "object") return;
+
   if (message.type === "POSTING_PROGRESS") {
-    showProgress(message.payload.percent, message.payload.text);
+    showProgress(Number(message.payload.percent) || 0, String(message.payload.text || ""));
   }
   if (message.type === "POSTING_DONE") {
     showProgress(100, "블로그 포스팅 완료!");
@@ -121,23 +157,23 @@ chrome.runtime.onMessage.addListener((message) => {
     btnPost.disabled = false;
   }
   if (message.type === "ERROR") {
-    setStatus("error", message.payload.message);
+    setStatus("error", String(message.payload.message || "오류가 발생했습니다."));
     btnPost.disabled = false;
     hideProgress();
   }
 });
 
-// ---- 유틸 ----
+// ---- 유틸 (textContent 사용 — XSS 방지) ----
 function setStatus(type, message) {
   statusEl.className = `status ${type}`;
-  statusEl.textContent = message;
+  statusEl.textContent = String(message); // innerHTML 사용 금지
   statusEl.classList.remove("hidden");
 }
 
 function showProgress(percent, text) {
   progressWrap.classList.remove("hidden");
-  progressFill.style.width = `${percent}%`;
-  progressText.textContent = text;
+  progressFill.style.width = `${Math.min(100, Math.max(0, Number(percent)))}%`;
+  progressText.textContent = String(text); // innerHTML 사용 금지
 }
 
 function hideProgress() {

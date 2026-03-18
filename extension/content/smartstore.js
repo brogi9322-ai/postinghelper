@@ -3,13 +3,30 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type !== "COLLECT_SHOPPING") return;
 
-  const affiliateUrl = message.affiliateUrl || "";
+  // affiliateUrl 타입 및 형식 검증
+  const affiliateUrl = typeof message.affiliateUrl === "string" ? message.affiliateUrl.trim() : "";
+  if (affiliateUrl) {
+    try {
+      const u = new URL(affiliateUrl);
+      if (u.protocol !== "https:") {
+        sendResponse({ success: false, error: "제휴 링크는 HTTPS만 허용됩니다." });
+        return;
+      }
+      if (!u.hostname.endsWith("naver.com") && !u.hostname.endsWith("naver.me")) {
+        sendResponse({ success: false, error: "네이버 제휴 링크만 허용됩니다." });
+        return;
+      }
+    } catch {
+      sendResponse({ success: false, error: "유효하지 않은 제휴 링크입니다." });
+      return;
+    }
+  }
 
   collectShoppingData(affiliateUrl)
     .then((data) => sendResponse({ success: true, data }))
-    .catch((err) => sendResponse({ success: false, error: err.message }));
+    .catch((err) => sendResponse({ success: false, error: String(err.message) }));
 
-  return true; // 비동기 응답 유지
+  return true;
 });
 
 // ============================================================
@@ -324,16 +341,24 @@ function collectReviewTextsOnPage() {
 // ============================================================
 // 유틸
 // ============================================================
+const TRUSTED_IMAGE_DOMAINS = ["pstatic.net", "naver.net", "naver.com"];
+const VALID_IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
+const BLOCKED_KEYWORDS = ["icon", "logo", "banner_", "btn_", "sprite"];
+
 function isValidImage(url) {
-  if (!url || url.startsWith("data:")) return false;
-  const lower = url.toLowerCase();
-  return (
-    (lower.includes(".jpg") || lower.includes(".jpeg") ||
-     lower.includes(".png") || lower.includes(".webp") ||
-     lower.includes("pstatic.net") || lower.includes("naver.net")) &&
-    !lower.includes("icon") && !lower.includes("logo") &&
-    !lower.includes("banner_") && !lower.includes("btn_")
-  );
+  if (!url || typeof url !== "string" || url.startsWith("data:")) return false;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return false;
+    const isTrusted = TRUSTED_IMAGE_DOMAINS.some((d) => u.hostname.endsWith(d));
+    if (!isTrusted) return false;
+    const lower = u.pathname.toLowerCase();
+    const hasValidExt = VALID_IMAGE_EXTS.some((ext) => lower.includes(ext));
+    const isBlocked = BLOCKED_KEYWORDS.some((kw) => lower.includes(kw));
+    return hasValidExt && !isBlocked;
+  } catch {
+    return false;
+  }
 }
 
 function normalizeImageUrl(url) {

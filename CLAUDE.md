@@ -115,6 +115,12 @@ postinghelper/
 - 환경변수는 `.env.local`에 정의, 코드에 하드코딩 금지
 - 컴포넌트/클래스 파일명은 PascalCase, 유틸은 camelCase
 - 작업 완료 시 반드시 `npm run typecheck && npm run test` 통과 확인
+- **보안 필수 규칙**:
+  - 외부 URL fetch 시 SSRF 방지 (도메인 화이트리스트, 내부IP 차단)
+  - 사용자 입력 → Claude 프롬프트 삽입 시 길이 제한 + JSON 구조화
+  - 크롬 익스텐션 메시지: sender.id 검증 + 타입 화이트리스트
+  - DOM 조작 시 textContent 사용 (innerHTML 금지)
+  - 모든 URL 입력은 HTTPS + 허용 도메인만 통과
 
 ---
 

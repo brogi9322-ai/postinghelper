@@ -44,6 +44,20 @@
 - `.claude/changelog.md` — 이 파일
 - **변경 파일**: `.claude/sprints.md`, `.claude/changelog.md`, `CLAUDE.md`
 
+### 보안 감사 및 전체 취약점 수정
+- **SSRF 차단** (`/api/images/save`): localhost, 내부IP, AWS메타데이터 서버 차단, 네이버 도메인만 허용
+- **Prompt Injection 방지** (`/api/shopping`, `/api/place`): 입력 데이터 길이 제한 + JSON 구조화 전달
+- **메시지 검증** (service-worker, popup): sender.id 검증, 허용된 타입 화이트리스트
+- **URL 검증 강화** (popup, smartstore.js): HTTPS 전용, 네이버 도메인만 허용
+- **이미지 URL 검증** (smartstore.js): 신뢰 도메인 whitelist, HTTPS 강제
+- **MIME 타입 검증** (images/save): 허용된 이미지 타입만 Blob 저장
+- **파일 크기 제한** (images/save): 10MB 초과 차단
+- **DoS 방지**: 이미지 최대 50개, 포스팅 중복 실행 방지 플래그
+- **XSS 방지** (popup): textContent 사용 강제, innerHTML 금지
+- **JSON 파싱 강화** (shopping/route): 배열 범위 검증, 타입 검증
+- **보안 테스트 14개** (`__tests__/api-images-save.test.ts`) 전부 통과
+- **변경 파일**: `app/api/images/save/route.ts`, `app/api/shopping/route.ts`, `extension/background/service-worker.js`, `extension/popup/popup.js`, `extension/content/smartstore.js`, `__tests__/api-images-save.test.ts`
+
 ### 제휴 링크 지원 추가
 - `ShoppingData` 타입에 `affiliateUrl` 필드 추가
 - 팝업에 제휴 링크 입력창 추가 (쇼핑 페이지 감지 시 표시)
