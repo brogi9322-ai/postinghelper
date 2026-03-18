@@ -14,21 +14,87 @@ const previewTags = document.getElementById("preview-tags");
 const previewSections = document.getElementById("preview-sections");
 const btnPreviewToggle = document.getElementById("btn-preview-toggle");
 
-const ALLOWED_MESSAGE_TYPES = ["POSTING_PROGRESS", "POSTING_DONE", "GENERATE_DONE", "ERROR"];
-
 let generatedPosting = null;
 
-// ---- URL 검증 ----
-function isValidUrl(str) {
-  try {
-    const url = new URL(str);
-    return url.protocol === "https:";
-  } catch {
-    return false;
+// ============================================================
+// 팝업 열릴 때 storage에서 이전 상태 복원
+// ============================================================
+chrome.storage.local.get(["status", "progress", "posting", "error"], (data) => {
+  if (data.status === "generating") {
+    btnGenerate.disabled = true;
+    if (data.progress) showProgress(data.progress.percent, data.progress.text);
+    setStatus("info", "처리 중... 잠시 후 다시 확인해주세요.");
+  } else if (data.status === "ready" && data.posting) {
+    generatedPosting = data.posting;
+    if (data.progress) showProgress(data.progress.percent, data.progress.text);
+    setStatus("success", "포스팅이 생성되었습니다. 확인 후 블로그에 올려주세요.");
+    showPreview(data.posting);
+    btnPost.classList.remove("hidden");
+  } else if (data.status === "posting") {
+    btnPost.disabled = true;
+    if (data.progress) showProgress(data.progress.percent, data.progress.text);
+    setStatus("info", "블로그에 포스팅 중...");
+  } else if (data.status === "done") {
+    setStatus("success", "블로그에 성공적으로 포스팅되었습니다!");
+    chrome.storage.local.remove(["status", "progress", "posting", "error"]);
+  } else if (data.status === "error") {
+    setStatus("error", String(data.error || "오류가 발생했습니다."));
+    chrome.storage.local.remove(["status", "error"]);
   }
-}
+});
 
-// ---- 포스팅 생성 버튼 ----
+// ============================================================
+// storage 변경 감지 — 팝업이 열려 있는 동안 실시간 업데이트
+// ============================================================
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+
+  if (changes.progress?.newValue) {
+    const p = changes.progress.newValue;
+    showProgress(p.percent, p.text);
+  }
+
+  if (changes.status?.newValue) {
+    const status = changes.status.newValue;
+
+    if (status === "ready") {
+      chrome.storage.local.get(["posting"], (data) => {
+        if (data.posting) {
+          generatedPosting = data.posting;
+          showPreview(data.posting);
+          setStatus("success", "포스팅이 생성되었습니다. 확인 후 블로그에 올려주세요.");
+          btnPost.classList.remove("hidden");
+          btnGenerate.disabled = false;
+        }
+      });
+    }
+
+    if (status === "posting") {
+      btnPost.disabled = true;
+    }
+
+    if (status === "done") {
+      showProgress(100, "블로그 포스팅 완료!");
+      setStatus("success", "블로그에 성공적으로 포스팅되었습니다!");
+      btnPost.disabled = false;
+      chrome.storage.local.remove(["status", "progress", "posting", "error"]);
+    }
+
+    if (status === "error") {
+      chrome.storage.local.get(["error"], (data) => {
+        setStatus("error", String(data.error || "오류가 발생했습니다."));
+        btnGenerate.disabled = false;
+        btnPost.disabled = false;
+        hideProgress();
+        chrome.storage.local.remove(["status", "error"]);
+      });
+    }
+  }
+});
+
+// ============================================================
+// 포스팅 생성 버튼
+// ============================================================
 btnGenerate.addEventListener("click", () => {
   const url = affiliateUrlInput.value.trim();
 
@@ -36,7 +102,10 @@ btnGenerate.addEventListener("click", () => {
     setStatus("error", "링크를 입력해주세요.");
     return;
   }
-  if (!isValidUrl(url)) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") throw new Error();
+  } catch {
     setStatus("error", "올바른 HTTPS 링크를 입력해주세요.");
     return;
   }
@@ -46,8 +115,11 @@ btnGenerate.addEventListener("click", () => {
   previewWrap.classList.add("hidden");
   generatedPosting = null;
 
-  showProgress(5, "상품 페이지 이동 중...");
+  showProgress(5, "시작 중...");
   setStatus("info", "처리 중...");
+
+  // storage 초기화
+  chrome.storage.local.remove(["status", "progress", "posting", "error"]);
 
   chrome.runtime.sendMessage(
     { type: "GENERATE_FROM_URL", payload: { url } },
@@ -57,12 +129,13 @@ btnGenerate.addEventListener("click", () => {
         btnGenerate.disabled = false;
         hideProgress();
       }
-      // 이후 진행 상황은 POSTING_PROGRESS / GENERATE_DONE / ERROR 메시지로 수신
     }
   );
 });
 
-// ---- 블로그에 올리기 버튼 ----
+// ============================================================
+// 블로그에 올리기 버튼
+// ============================================================
 btnPost.addEventListener("click", () => {
   if (!generatedPosting) return;
 
@@ -82,40 +155,9 @@ btnPost.addEventListener("click", () => {
   );
 });
 
-// ---- service worker에서 오는 진행 상황 수신 ----
-chrome.runtime.onMessage.addListener((message, sender) => {
-  if (sender.id !== chrome.runtime.id) return;
-  if (!ALLOWED_MESSAGE_TYPES.includes(message.type)) return;
-  if (!message.payload || typeof message.payload !== "object") return;
-
-  if (message.type === "POSTING_PROGRESS") {
-    showProgress(Number(message.payload.percent) || 0, String(message.payload.text || ""));
-  }
-
-  if (message.type === "GENERATE_DONE") {
-    generatedPosting = message.payload.posting;
-    showProgress(100, "포스팅 생성 완료!");
-    setStatus("success", "포스팅이 생성되었습니다. 확인 후 블로그에 올려주세요.");
-    showPreview(message.payload.posting);
-    btnPost.classList.remove("hidden");
-    btnGenerate.disabled = false;
-  }
-
-  if (message.type === "POSTING_DONE") {
-    showProgress(100, "블로그 포스팅 완료!");
-    setStatus("success", "블로그에 성공적으로 포스팅되었습니다!");
-    btnPost.disabled = false;
-  }
-
-  if (message.type === "ERROR") {
-    setStatus("error", String(message.payload.message || "오류가 발생했습니다."));
-    btnGenerate.disabled = false;
-    btnPost.disabled = false;
-    hideProgress();
-  }
-});
-
-// ---- 유틸 (textContent 사용 — XSS 방지) ----
+// ============================================================
+// 유틸
+// ============================================================
 function setStatus(type, message) {
   statusEl.className = `status ${type}`;
   statusEl.textContent = String(message);
@@ -132,7 +174,7 @@ function hideProgress() {
   progressWrap.classList.add("hidden");
 }
 
-// ---- 미리보기 렌더링 ----
+// ---- 미리보기 렌더링 (XSS 방지 — textContent/createElement만 사용) ----
 function showPreview(posting) {
   if (!posting) return;
 

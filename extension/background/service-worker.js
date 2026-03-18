@@ -4,24 +4,30 @@ const API_BASE = "https://postinghelper.vercel.app";
 // 로컬 개발 시: const API_BASE = "http://localhost:3000";
 
 const SHOPPING_DOMAINS = ["smartstore.naver.com", "brand.naver.com", "brandconnect.naver.com"];
-let isGenerating = false; // 중복 생성 방지
-let isPosting = false;    // 중복 포스팅 방지
+let isGenerating = false;
+let isPosting = false;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
 
-  const ALLOWED_TYPES = [
-    "GENERATE_FROM_URL", "START_POSTING",
-    "POSTING_PROGRESS", "POSTING_DONE", "ERROR",
-  ];
+  const ALLOWED_TYPES = ["GENERATE_FROM_URL", "START_POSTING", "POSTING_PROGRESS", "POSTING_DONE", "ERROR"];
   if (!ALLOWED_TYPES.includes(message.type)) return;
 
-  // naverblog.js → service worker → popup 포워딩
-  if (["POSTING_PROGRESS", "POSTING_DONE", "ERROR"].includes(message.type)) {
-    if (message.type === "POSTING_DONE" || message.type === "ERROR") {
-      isPosting = false;
-    }
-    chrome.runtime.sendMessage(message).catch(() => {});
+  // naverblog.js → 팝업 포워딩 + storage 업데이트
+  if (message.type === "POSTING_PROGRESS") {
+    const p = message.payload || {};
+    saveState({ status: "posting", progress: { percent: Number(p.percent) || 0, text: String(p.text || "") } });
+    return;
+  }
+  if (message.type === "POSTING_DONE") {
+    isPosting = false;
+    saveState({ status: "done", progress: { percent: 100, text: "블로그 포스팅 완료!" } });
+    return;
+  }
+  if (message.type === "ERROR") {
+    isPosting = false;
+    isGenerating = false;
+    saveState({ status: "error", error: String(message.payload?.message || "오류 발생") });
     return;
   }
 
@@ -44,48 +50,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// ---- URL 입력 → 수집 → 생성 → 팝업에 GENERATE_DONE 전송 ----
+// ============================================================
+// URL → 수집 → 생성 → storage에 저장
+// ============================================================
 async function handleGenerateFromUrl(url, sendResponse) {
   if (isGenerating) {
     sendResponse({ success: false, error: "이미 처리 중입니다." });
     return;
   }
   isGenerating = true;
-  sendResponse({ success: true }); // 즉시 응답, 이후 진행은 sendGenerateProgress로
+  sendResponse({ success: true });
+
+  await saveState({ status: "generating", progress: { percent: 5, text: "상품 페이지 이동 중..." } });
 
   let productTab = null;
 
   try {
     // 1. 상품 페이지 열기
-    sendGenerateProgress(10, "상품 페이지 이동 중...");
     productTab = await chrome.tabs.create({ url, active: true });
     await waitForTabLoad(productTab.id);
-    await sleep(2000); // 동적 콘텐츠 로딩 대기
+    await sleep(2000);
 
-    // 2. 최종 URL로 페이지 타입 결정
+    await saveProgress(20, "페이지 로딩 완료. 데이터 수집 준비 중...");
+
+    // 2. 페이지 타입 결정
     const updatedTab = await chrome.tabs.get(productTab.id);
     const finalUrl = updatedTab.url || "";
     const pageType = SHOPPING_DOMAINS.some((d) => finalUrl.includes(d)) ? "shopping" : "place";
 
     // 3. 데이터 수집
-    sendGenerateProgress(30, "데이터 수집 중...");
+    await saveProgress(30, "데이터 수집 중...");
     const collectRes = await sendMessageToTab(productTab.id, {
       type: pageType === "shopping" ? "COLLECT_SHOPPING" : "COLLECT_PLACE",
       affiliateUrl: url,
     });
 
-    if (!collectRes?.success) {
-      throw new Error(collectRes?.error || "데이터 수집 실패");
-    }
+    if (!collectRes?.success) throw new Error(collectRes?.error || "데이터 수집 실패");
 
-    // 상품 탭 닫기
     chrome.tabs.remove(productTab.id).catch(() => {});
     productTab = null;
 
     const data = collectRes.data;
 
-    // 4. Claude API로 포스팅 생성 시도 → 실패 시 raw 포맷 폴백
-    sendGenerateProgress(60, "포스팅 생성 중...");
+    // 4. 포스팅 생성 (Claude API → 실패 시 raw 포맷)
+    await saveProgress(60, "포스팅 생성 중...");
     let posting = null;
 
     try {
@@ -99,19 +107,14 @@ async function handleGenerateFromUrl(url, sendResponse) {
       if (res.ok && json.posting && typeof json.posting === "object") {
         posting = json.posting;
       }
-    } catch {
-      // 서버 미배포 or API 키 없음 → 폴백
-    }
+    } catch { /* 서버 없음 → 폴백 */ }
 
     if (!posting) posting = formatRawPosting(data, pageType);
 
-    // 5. 이미지 Vercel Blob 저장 시도
-    sendGenerateProgress(80, "이미지 저장 중...");
+    // 5. 이미지 저장
+    await saveProgress(80, "이미지 저장 중...");
     try {
-      const imageUrls = posting.sections
-        .filter((s) => s.type === "image" && s.content)
-        .map((s) => s.content);
-
+      const imageUrls = posting.sections.filter((s) => s.type === "image" && s.content).map((s) => s.content);
       if (imageUrls.length > 0) {
         const saveRes = await fetch(`${API_BASE}/api/images/save`, {
           method: "POST",
@@ -122,31 +125,27 @@ async function handleGenerateFromUrl(url, sendResponse) {
           const saveJson = await saveRes.json().catch(() => ({}));
           const savedUrls = Array.isArray(saveJson.savedUrls) ? saveJson.savedUrls : [];
           let idx = 0;
-          posting.sections = posting.sections.map((s) => {
-            if (s.type === "image") return { ...s, content: savedUrls[idx++] || s.content };
-            return s;
-          });
+          posting.sections = posting.sections.map((s) =>
+            s.type === "image" ? { ...s, content: savedUrls[idx++] || s.content } : s
+          );
         }
       }
-    } catch {
-      // 이미지 저장 실패해도 원본 URL로 계속 진행
-    }
+    } catch { /* 이미지 저장 실패 → 원본 URL 유지 */ }
 
-    sendGenerateProgress(100, "생성 완료!");
-    chrome.runtime.sendMessage({ type: "GENERATE_DONE", payload: { posting } }).catch(() => {});
+    // 6. storage에 완성된 포스팅 저장 → 팝업이 열리면 이걸 읽음
+    await saveState({ status: "ready", progress: { percent: 100, text: "포스팅 생성 완료!" }, posting });
 
   } catch (err) {
     if (productTab) chrome.tabs.remove(productTab.id).catch(() => {});
-    chrome.runtime.sendMessage({
-      type: "ERROR",
-      payload: { message: String(err.message || "오류 발생") },
-    }).catch(() => {});
+    await saveState({ status: "error", error: String(err.message || "오류 발생") });
   } finally {
     isGenerating = false;
   }
 }
 
-// ---- 블로그 자동 포스팅 ----
+// ============================================================
+// 블로그 자동 포스팅
+// ============================================================
 async function handleStartPosting({ posting }, sendResponse) {
   if (isPosting) {
     sendResponse({ success: false, error: "이미 포스팅이 진행 중입니다." });
@@ -155,42 +154,34 @@ async function handleStartPosting({ posting }, sendResponse) {
 
   isPosting = true;
   try {
-    const tab = await chrome.tabs.create({
-      url: "https://blog.naver.com/PostWriteForm.naver",
-    });
-
+    const tab = await chrome.tabs.create({ url: "https://blog.naver.com/PostWriteForm.naver" });
     await waitForTabLoad(tab.id);
 
     // 로그인 여부 확인
     const currentTab = await chrome.tabs.get(tab.id);
     if (currentTab.url?.includes("nid.naver.com")) {
-      sendGenerateProgress(5, "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다.");
-
-      // 로그인 완료 후 blog.naver.com으로 돌아올 때까지 대기 (최대 3분)
+      await saveState({ status: "posting", progress: { percent: 5, text: "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다." } });
       await waitForTabUrl(tab.id, (url) => url.includes("blog.naver.com"), 180000);
       await sleep(1000);
-
-      // 로그인 후 글쓰기 페이지로 이동
       await chrome.tabs.update(tab.id, { url: "https://blog.naver.com/PostWriteForm.naver" });
       await waitForTabLoad(tab.id);
     }
 
-    sendGenerateProgress(10, "블로그 에디터 로딩 중...");
-    await sleep(2500); // 에디터 JS 초기화 대기
+    await saveProgress(10, "블로그 에디터 로딩 중...");
+    await sleep(2500);
 
-    await chrome.tabs.sendMessage(tab.id, {
-      type: "DO_POSTING",
-      payload: { posting },
-    });
-
+    await chrome.tabs.sendMessage(tab.id, { type: "DO_POSTING", payload: { posting } });
     sendResponse({ success: true });
   } catch (err) {
     isPosting = false;
-    sendResponse({ success: false, error: String(err.message || "블로그 이동 실패") });
+    await saveState({ status: "error", error: String(err.message || "블로그 이동 실패") });
+    sendResponse({ success: false, error: String(err.message) });
   }
 }
 
-// ---- API 없을 때 수집 데이터 → 포스팅 포맷 변환 ----
+// ============================================================
+// API 없을 때 raw 데이터 포맷
+// ============================================================
 function formatRawPosting(data, pageType) {
   if (pageType === "shopping") {
     const images = Array.isArray(data.images) ? data.images : [];
@@ -200,7 +191,6 @@ function formatRawPosting(data, pageType) {
       type: "text",
       content: [String(data.productName || ""), "", String(data.description || "").slice(0, 500)].join("\n"),
     });
-
     if (images[0]) sections.push({ type: "image", content: images[0] });
 
     const priceLines = [];
@@ -216,35 +206,34 @@ function formatRawPosting(data, pageType) {
     if (highlights.length) {
       sections.push({
         type: "text",
-        content: [
-          `평점: ${data.reviews.rating || "-"}점 (${data.reviews.count || 0}개 리뷰)`,
-          "",
-          highlights.slice(0, 5).map((h) => `• ${String(h)}`).join("\n"),
-        ].join("\n"),
+        content: [`평점: ${data.reviews.rating || "-"}점 (${data.reviews.count || 0}개 리뷰)`, "", highlights.slice(0, 5).map((h) => `• ${String(h)}`).join("\n")].join("\n"),
       });
     }
-
     images.slice(2, 6).forEach((img) => sections.push({ type: "image", content: img }));
-
     if (data.affiliateUrl) {
-      sections.push({
-        type: "text",
-        content: `구매를 원하신다면 아래 링크를 확인해보세요!\n${String(data.affiliateUrl)}`,
-      });
+      sections.push({ type: "text", content: `구매를 원하신다면 아래 링크를 확인해보세요!\n${String(data.affiliateUrl)}` });
     }
 
     const tags = String(data.productName || "").split(/\s+/).filter((t) => t.length > 1).slice(0, 8);
     return { title: String(data.productName || "상품 포스팅"), sections, tags };
   }
-
-  return {
-    title: String(data.name || "포스팅"),
-    sections: [{ type: "text", content: String(data.description || "") }],
-    tags: [],
-  };
+  return { title: String(data.name || "포스팅"), sections: [{ type: "text", content: String(data.description || "") }], tags: [] };
 }
 
-// ---- 유틸 ----
+// ============================================================
+// storage 헬퍼
+// ============================================================
+function saveState(state) {
+  return chrome.storage.local.set(state);
+}
+
+function saveProgress(percent, text) {
+  return saveState({ status: "generating", progress: { percent, text } });
+}
+
+// ============================================================
+// 유틸
+// ============================================================
 function validateStartPayload(payload) {
   if (!payload || typeof payload !== "object") return false;
   if (!payload.posting || typeof payload.posting !== "object") return false;
@@ -253,30 +242,18 @@ function validateStartPayload(payload) {
   return true;
 }
 
-function sendGenerateProgress(percent, text) {
-  chrome.runtime.sendMessage({
-    type: "POSTING_PROGRESS",
-    payload: { percent, text },
-  }).catch(() => {});
-}
-
-// content script가 아직 준비 안 됐을 수 있어서 최대 5회 재시도
 async function sendMessageToTab(tabId, message, retries = 5, delayMs = 2000) {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await new Promise((resolve, reject) => {
+      return await new Promise((resolve, reject) => {
         chrome.tabs.sendMessage(tabId, message, (res) => {
           if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
           else resolve(res);
         });
       });
-      return response;
     } catch (err) {
-      if (i < retries - 1) {
-        await sleep(delayMs);
-      } else {
-        throw err;
-      }
+      if (i < retries - 1) await sleep(delayMs);
+      else throw err;
     }
   }
 }
@@ -285,33 +262,12 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// 탭 URL이 조건을 만족할 때까지 대기 (로그인 완료 감지용)
-function waitForTabUrl(tabId, urlCheck, timeoutMs = 180000) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      reject(new Error("로그인 대기 타임아웃 (3분)"));
-    }, timeoutMs);
-
-    function listener(id, info, tab) {
-      if (id === tabId && info.status === "complete" && urlCheck(tab.url || "")) {
-        clearTimeout(timeout);
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    }
-
-    chrome.tabs.onUpdated.addListener(listener);
-  });
-}
-
 function waitForTabLoad(tabId) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       chrome.tabs.onUpdated.removeListener(listener);
       reject(new Error("탭 로딩 타임아웃"));
     }, 30000);
-
     function listener(id, info) {
       if (id === tabId && info.status === "complete") {
         clearTimeout(timeout);
@@ -319,7 +275,23 @@ function waitForTabLoad(tabId) {
         resolve();
       }
     }
+    chrome.tabs.onUpdated.addListener(listener);
+  });
+}
 
+function waitForTabUrl(tabId, urlCheck, timeoutMs = 180000) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      reject(new Error("로그인 대기 타임아웃 (3분)"));
+    }, timeoutMs);
+    function listener(id, info, tab) {
+      if (id === tabId && info.status === "complete" && urlCheck(tab.url || "")) {
+        clearTimeout(timeout);
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    }
     chrome.tabs.onUpdated.addListener(listener);
   });
 }
