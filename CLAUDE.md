@@ -2,6 +2,14 @@
 
 AI 해커톤용 블로그 포스팅 도우미. Claude API를 활용해 사용자가 입력한 주제로 블로그 글을 자동 생성한다.
 
+## 새 터미널에서 시작할 때 필독
+
+1. **현재 스프린트 확인**: `.claude/sprints.md`
+2. **기능 요구사항 확인**: `.claude/prd.md` (생성 후)
+3. **결정 사항 확인**: `.claude/decisions.md` (생성 후)
+
+> 작업 완료 시 `.claude/sprints.md`의 체크박스를 업데이트한다.
+
 ## 기술 스택
 
 - **프레임워크**: Next.js 15 (App Router)
@@ -23,8 +31,22 @@ app/
 lib/
   claude.ts             # Anthropic 클라이언트 싱글턴
 components/             # 재사용 UI 컴포넌트 (추가 시 여기에)
+__tests__/              # Jest 테스트 파일
+.github/workflows/
+  ci.yml                # GitHub Actions CI (typecheck + lint + test)
 .claude/
+  sprints.md            # 스프린트 현황 및 백로그 ← 항상 확인
   agents/               # 역할별 서브에이전트 정의
+```
+
+## 개발 명령어
+
+```bash
+npm run dev          # 로컬 서버 실행
+npm run typecheck    # TypeScript 타입 체크
+npm run lint         # ESLint
+npm run test         # Jest 테스트
+npm run test:ci      # CI용 테스트 (coverage 포함)
 ```
 
 ## Claude API 패턴
