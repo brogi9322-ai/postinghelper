@@ -44,6 +44,16 @@
 - `.claude/changelog.md` — 이 파일
 - **변경 파일**: `.claude/sprints.md`, `.claude/changelog.md`, `CLAUDE.md`
 
+### Sprint 3 — 스마트스토어 데이터 수집
+- `extension/content/smartstore.js` 전면 구현
+  - 상품명, 가격(정가/할인가), 판매자, 배송 추출 (다중 선택자 fallback)
+  - 대표 이미지 슬라이더 + 상세페이지 이미지(iframe 포함) 수집
+  - 리뷰 탭 클릭 → 최신 리뷰 3페이지 수집 (평점, 리뷰수, 주요 리뷰)
+  - 동적 콘텐츠 대기 (MutationObserver + scroll lazy load)
+- `extension/manifest.json` — brandconnect.naver.com 도메인 추가
+- `__tests__/api-shopping.test.ts` 유닛 테스트 2개
+- **변경 파일**: `extension/content/smartstore.js`, `extension/manifest.json`, `__tests__/api-shopping.test.ts`
+
 ### Sprint 2 — 프로젝트 구조 재설계 + 익스텐션 기반 세팅
 - 크롬 익스텐션 전체 구조 생성 (`extension/manifest.json`, `popup/`, `background/`, `content/`)
 - `types/index.ts` 공통 타입 정의 (ShoppingData, PlaceData, PostingSection, GeneratedPosting 등)

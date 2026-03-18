@@ -12,6 +12,7 @@
 
   "host_permissions": [
     "https://smartstore.naver.com/*",
+    "https://brandconnect.naver.com/*",
     "https://map.naver.com/*",
     "https://blog.naver.com/*"
   ],
@@ -32,7 +33,7 @@
 
   "content_scripts": [
     {
-      "matches": ["https://smartstore.naver.com/*"],
+      "matches": ["https://smartstore.naver.com/*", "https://brandconnect.naver.com/*"],
       "js": ["content/smartstore.js"],
       "run_at": "document_idle"
     },
