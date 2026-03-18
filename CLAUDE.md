@@ -4,11 +4,19 @@ AI 해커톤용 블로그 포스팅 도우미. Claude API를 활용해 사용자
 
 ## 새 터미널에서 시작할 때 필독
 
-1. **현재 스프린트 확인**: `.claude/sprints.md`
-2. **기능 요구사항 확인**: `.claude/prd.md` (생성 후)
-3. **결정 사항 확인**: `.claude/decisions.md` (생성 후)
+순서대로 읽고 현재 상태를 파악한 뒤 작업을 시작한다.
 
-> 작업 완료 시 `.claude/sprints.md`의 체크박스를 업데이트한다.
+1. `.claude/sprints.md` — 현재 스프린트, 남은 작업 확인
+2. `.claude/changelog.md` — 마지막으로 어떤 작업을 했는지 확인
+
+## 작업 완료 후 필수 업데이트 (매번 반드시)
+
+코드 작업이 끝날 때마다 아래 두 파일을 업데이트한다. 빠뜨리지 말 것.
+
+| 파일 | 업데이트 내용 |
+|---|---|
+| `.claude/sprints.md` | 완료한 항목 ✅ 체크, 현재 스프린트 상태 갱신 |
+| `.claude/changelog.md` | 날짜 / 작업 내용 / 변경된 파일 추가 |
 
 ## 기술 스택
 
@@ -35,7 +43,8 @@ __tests__/              # Jest 테스트 파일
 .github/workflows/
   ci.yml                # GitHub Actions CI (typecheck + lint + test)
 .claude/
-  sprints.md            # 스프린트 현황 및 백로그 ← 항상 확인
+  sprints.md            # 스프린트 현황 및 백로그 ← 작업 전 확인, 완료 후 업데이트
+  changelog.md          # 변경 기록 ← 작업 완료 후 반드시 추가
   agents/               # 역할별 서브에이전트 정의
 ```
 
