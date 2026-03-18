@@ -32,10 +32,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ============================================================
 // 메인 수집 함수
 // ============================================================
+function sendProgress(percent, text) {
+  chrome.runtime.sendMessage({
+    type: "POSTING_PROGRESS",
+    payload: { percent, text },
+  }).catch(() => {});
+}
+
 async function collectShoppingData(affiliateUrl) {
   // 페이지가 완전히 로드될 때까지 대기
+  sendProgress(32, "상품 정보 로딩 대기 중...");
   await waitForElement('[class*="productTitle"], h3[class*="title"], ._2-I30XS1lA', 10000);
 
+  sendProgress(36, "상품 정보 추출 중...");
   const productName = getProductName();
   const price = getPrice();
   const seller = getSeller();
@@ -43,11 +52,13 @@ async function collectShoppingData(affiliateUrl) {
   const shipping = getShipping();
 
   // 리뷰 탭 클릭 후 수집
+  sendProgress(42, "리뷰 수집 중...");
   await clickReviewTab();
   await sleep(1500);
   const reviews = await collectReviews();
 
   // 상세 페이지 이미지 수집 (스크롤 후 iframe 포함)
+  sendProgress(50, "이미지 수집 중...");
   const detailImages = await collectDetailImages();
 
   const allImages = [...new Set([...mainImages, ...detailImages])];
@@ -247,30 +258,15 @@ async function collectDetailImages() {
 // 리뷰 수집
 // ============================================================
 async function clickReviewTab() {
-  const reviewTabSelectors = [
-    "[class*='reviewTab']",
-    "button[class*='tab']:has(span:contains('리뷰'))",
-    "a[class*='tab'][href*='review']",
-    "[class*='_2pgHN-ntx6']:nth-child(3)",
-    "li[class*='tab'] button",
-  ];
-
-  for (const sel of reviewTabSelectors) {
-    const tabs = document.querySelectorAll(sel);
-    for (const tab of tabs) {
-      if (tab.textContent?.includes("리뷰")) {
-        tab.click();
-        return;
-      }
-    }
-  }
-
-  // 텍스트로 찾기 (fallback)
-  const allButtons = document.querySelectorAll("button, a, li");
-  for (const el of allButtons) {
-    if (el.textContent?.trim() === "리뷰" || el.textContent?.includes("리뷰")) {
+  // ":contains()" 는 표준 CSS 미지원 — 텍스트 기반으로만 탐색
+  const candidates = document.querySelectorAll(
+    "[class*='reviewTab'], [class*='tab'] button, [class*='tab'] a, li[class*='tab'], button, a"
+  );
+  for (const el of candidates) {
+    const text = el.textContent?.trim() || "";
+    if (text === "리뷰" || text.startsWith("리뷰")) {
       el.click();
-      break;
+      return;
     }
   }
 }

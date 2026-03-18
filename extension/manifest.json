@@ -7,7 +7,8 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "notifications"
   ],
 
   "host_permissions": [
@@ -15,7 +16,8 @@
     "https://brand.naver.com/*",
     "https://brandconnect.naver.com/*",
     "https://map.naver.com/*",
-    "https://blog.naver.com/*"
+    "https://blog.naver.com/*",
+    "https://*.public.blob.vercel-storage.com/*"
   ],
 
   "action": {
