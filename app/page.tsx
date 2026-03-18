@@ -7,6 +7,7 @@ export default function Home() {
   const [tone, setTone] = useState("친근하고 전문적인");
   const [length, setLength] = useState("중간 (500-800자)");
   const [result, setResult] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -19,6 +20,7 @@ export default function Home() {
     setLoading(true);
     setError("");
     setResult("");
+    setTags([]);
 
     try {
       const res = await fetch("/api/generate", {
@@ -34,6 +36,7 @@ export default function Home() {
       }
 
       setResult(data.content);
+      setTags(data.tags ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.");
     } finally {
@@ -130,6 +133,18 @@ export default function Home() {
                 복사하기
               </button>
             </div>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-6">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
             <pre className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed font-sans">
               {result}
             </pre>
