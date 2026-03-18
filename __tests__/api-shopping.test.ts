@@ -1,5 +1,6 @@
 /**
  * /api/shopping 라우트 유닛 테스트
+ * 에이전트 루프: plan_structure → generate_tags → end_turn
  */
 
 jest.mock("@/lib/claude", () => ({
@@ -47,21 +48,48 @@ describe("POST /api/shopping", () => {
     expect(data.error).toBe("상품 데이터가 없습니다.");
   });
 
-  it("정상 요청 시 posting 반환", async () => {
+  it("에이전트 루프 (plan_structure → generate_tags → end_turn) 정상 처리", async () => {
+    // 1차 응답: plan_structure tool_use
     mockCreate.mockResolvedValueOnce({
+      stop_reason: "tool_use",
+      content: [
+        {
+          type: "tool_use",
+          id: "tool_1",
+          name: "plan_structure",
+          input: {
+            sections: [
+              { type: "text", label: "도입부" },
+              { type: "image", label: "대표이미지", imageIndex: 0 },
+              { type: "text", label: "상품소개" },
+              { type: "image", label: "상세이미지", imageIndex: 1 },
+              { type: "text", label: "마무리" },
+            ],
+          },
+        },
+      ],
+    });
+
+    // 2차 응답: generate_tags tool_use
+    mockCreate.mockResolvedValueOnce({
+      stop_reason: "tool_use",
+      content: [
+        {
+          type: "tool_use",
+          id: "tool_2",
+          name: "generate_tags",
+          input: { tags: ["테스트상품", "쇼핑", "후기"] },
+        },
+      ],
+    });
+
+    // 3차 응답: end_turn (실제 블로그 텍스트)
+    mockCreate.mockResolvedValueOnce({
+      stop_reason: "end_turn",
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            title: "테스트 상품 솔직 후기",
-            sections: [
-              { type: "text", content: "오늘 소개할 상품은..." },
-              { type: "image", content: "IMAGE_0" },
-              { type: "text", content: "사용해보니 정말 좋았습니다." },
-              { type: "image", content: "IMAGE_1" },
-            ],
-            tags: ["테스트", "상품후기", "쇼핑"],
-          }),
+          text: "오늘 소개할 상품은 테스트 상품입니다.\n\n사용해보니 정말 좋았습니다.\n\n구매를 원하신다면 아래 링크를 확인하세요.",
         },
       ],
     });
@@ -70,11 +98,20 @@ describe("POST /api/shopping", () => {
     expect(res.status).toBe(200);
 
     const { posting } = await res.json();
-    expect(posting.title).toBe("테스트 상품 솔직 후기");
-    expect(posting.sections).toHaveLength(4);
-    // IMAGE_0 → 실제 이미지 URL로 교체됐는지 확인
+    expect(posting.title).toBe("테스트 상품");
+    expect(posting.tags).toEqual(["테스트상품", "쇼핑", "후기"]);
+
+    // sections: text/image/text/image/text = 5개
+    expect(posting.sections).toHaveLength(5);
+    expect(posting.sections[0].type).toBe("text");
+    expect(posting.sections[1].type).toBe("image");
     expect(posting.sections[1].content).toBe("https://example.com/img1.jpg");
+    expect(posting.sections[2].type).toBe("text");
+    expect(posting.sections[3].type).toBe("image");
     expect(posting.sections[3].content).toBe("https://example.com/img2.jpg");
-    expect(posting.tags).toContain("테스트");
+    expect(posting.sections[4].type).toBe("text");
+
+    // Claude API가 3번 호출됐는지 확인
+    expect(mockCreate).toHaveBeenCalledTimes(3);
   });
 });

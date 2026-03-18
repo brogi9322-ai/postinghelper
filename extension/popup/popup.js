@@ -9,6 +9,12 @@ const btnGenerate = document.getElementById("btn-generate");
 const btnPost = document.getElementById("btn-post");
 const affiliateWrap = document.getElementById("affiliate-wrap");
 const affiliateUrlInput = document.getElementById("affiliate-url");
+const previewWrap = document.getElementById("preview-wrap");
+const previewContent = document.getElementById("preview-content");
+const previewTitle = document.getElementById("preview-title");
+const previewTags = document.getElementById("preview-tags");
+const previewSections = document.getElementById("preview-sections");
+const btnPreviewToggle = document.getElementById("btn-preview-toggle");
 
 const SHOPPING_DOMAINS = ["smartstore.naver.com", "brand.naver.com", "brandconnect.naver.com"];
 const ALLOWED_MESSAGE_TYPES = ["POSTING_PROGRESS", "POSTING_DONE", "ERROR"];
@@ -112,6 +118,7 @@ btnGenerate.addEventListener("click", async () => {
           generatedPosting = result.posting;
           showProgress(100, "포스팅 생성 완료!");
           setStatus("success", "포스팅이 생성되었습니다.");
+          showPreview(result.posting);
           btnPost.classList.remove("hidden");
           btnGenerate.disabled = false;
         }
@@ -179,3 +186,43 @@ function showProgress(percent, text) {
 function hideProgress() {
   progressWrap.classList.add("hidden");
 }
+
+// ---- 미리보기 렌더링 (textContent/createElement 사용 — XSS 방지) ----
+function showPreview(posting) {
+  if (!posting) return;
+
+  // 제목
+  previewTitle.textContent = String(posting.title || "");
+
+  // 태그
+  previewTags.textContent = "";
+  (posting.tags || []).forEach((tag) => {
+    const span = document.createElement("span");
+    span.className = "preview-tag";
+    span.textContent = "#" + String(tag);
+    previewTags.appendChild(span);
+  });
+
+  // 섹션
+  previewSections.textContent = "";
+  (posting.sections || []).forEach((section, i) => {
+    const div = document.createElement("div");
+    if (section.type === "image") {
+      div.className = "preview-section-image";
+      div.textContent = `📷 이미지 ${i + 1}`;
+    } else {
+      div.className = "preview-section-text";
+      div.textContent = String(section.content || "").slice(0, 200) + (section.content?.length > 200 ? "…" : "");
+    }
+    previewSections.appendChild(div);
+  });
+
+  previewWrap.classList.remove("hidden");
+}
+
+// ---- 미리보기 토글 ----
+btnPreviewToggle.addEventListener("click", () => {
+  const isHidden = previewContent.classList.contains("hidden");
+  previewContent.classList.toggle("hidden");
+  btnPreviewToggle.textContent = isHidden ? "접기" : "펼치기";
+});

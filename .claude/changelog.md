@@ -58,6 +58,19 @@
 - **보안 테스트 14개** (`__tests__/api-images-save.test.ts`) 전부 통과
 - **변경 파일**: `app/api/images/save/route.ts`, `app/api/shopping/route.ts`, `extension/background/service-worker.js`, `extension/popup/popup.js`, `extension/content/smartstore.js`, `__tests__/api-images-save.test.ts`
 
+### Sprint 4 — 쇼핑 포스팅 생성 + 미리보기
+- `/api/shopping` 에이전트 루프 완성: `plan_structure` → `generate_tags` → `end_turn`
+  - `plan_structure` tool: Claude가 글 구조(텍스트/이미지 순서, imageIndex) 결정
+  - `generate_tags` tool: SEO 최적화 태그 7~12개 생성
+  - `sanitizeData()` 함수로 Prompt Injection 방지 (길이 제한 + JSON 구조화)
+  - affiliateUrl HTTPS 검증, MAX_LOOPS=6 무한루프 방지
+- 팝업 미리보기 기능 추가
+  - `popup.html`: `#preview-wrap`, `#preview-title`, `#preview-tags`, `#preview-sections` 추가
+  - `popup.css`: 미리보기 스타일 추가 (토글, 태그 뱃지, 텍스트/이미지 섹션)
+  - `popup.js`: `showPreview()` 함수 — textContent/createElement만 사용 (XSS 방지), 토글 버튼 구현
+- `__tests__/api-shopping.test.ts`: 에이전트 루프 3단계 모킹 테스트로 업데이트 (14개 전부 통과)
+- **변경 파일**: `app/api/shopping/route.ts`, `extension/popup/popup.html`, `extension/popup/popup.css`, `extension/popup/popup.js`, `__tests__/api-shopping.test.ts`
+
 ### 제휴 링크 지원 추가
 - `ShoppingData` 타입에 `affiliateUrl` 필드 추가
 - 팝업에 제휴 링크 입력창 추가 (쇼핑 페이지 감지 시 표시)
