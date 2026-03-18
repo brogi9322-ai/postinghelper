@@ -7,7 +7,7 @@
 
 ## 현재 스프린트
 
-**Sprint 2** — 🔴 진행 예정 (프로젝트 구조 재설계 + 익스텐션 기반 세팅)
+**Sprint 3** — 🔴 진행 예정 (스마트스토어 데이터 수집)
 
 ---
 
@@ -28,19 +28,20 @@
 
 ---
 
-### 🔴 Sprint 2 — 프로젝트 구조 재설계 + 익스텐션 기반 세팅
-**목표**: 크롬 익스텐션 프로젝트 구조 세팅, 기존 백엔드 정리
+### ✅ Sprint 2 — 프로젝트 구조 재설계 + 익스텐션 기반 세팅
+**기간**: 2026-03-18 | **상태**: 완료
 
 | 항목 | 상태 |
 |---|---|
-| 크롬 익스텐션 폴더 구조 생성 (`extension/`) | 🔲 |
-| manifest.json 작성 (MV3) | 🔲 |
-| 익스텐션 popup UI 기본 틀 | 🔲 |
-| background service worker 기본 틀 | 🔲 |
-| 기존 `/api/generate` 정리 및 `/api/shopping` 라우트 뼈대 생성 | 🔲 |
-| `/api/images/save` 라우트 뼈대 생성 | 🔲 |
-| 공통 TypeScript 타입 정의 (`types/index.ts`) | 🔲 |
-| Vercel Blob 패키지 설치 및 환경변수 세팅 | 🔲 |
+| 크롬 익스텐션 폴더 구조 생성 (`extension/`) | ✅ |
+| manifest.json 작성 (MV3) | ✅ |
+| 익스텐션 popup UI 기본 틀 | ✅ |
+| background service worker 기본 틀 | ✅ |
+| `/api/shopping` 라우트 뼈대 생성 | ✅ |
+| `/api/place` 라우트 뼈대 생성 | ✅ |
+| `/api/images/save` 라우트 뼈대 생성 | ✅ |
+| 공통 TypeScript 타입 정의 (`types/index.ts`) | ✅ |
+| Vercel Blob 패키지 설치 및 환경변수 세팅 | ✅ |
 
 ---
 

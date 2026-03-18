@@ -44,6 +44,14 @@
 - `.claude/changelog.md` — 이 파일
 - **변경 파일**: `.claude/sprints.md`, `.claude/changelog.md`, `CLAUDE.md`
 
+### Sprint 2 — 프로젝트 구조 재설계 + 익스텐션 기반 세팅
+- 크롬 익스텐션 전체 구조 생성 (`extension/manifest.json`, `popup/`, `background/`, `content/`)
+- `types/index.ts` 공통 타입 정의 (ShoppingData, PlaceData, PostingSection, GeneratedPosting 등)
+- `/api/shopping`, `/api/place`, `/api/images/save` 라우트 뼈대
+- Vercel Blob 설치 (`@vercel/blob`), `.env.local`에 `BLOB_READ_WRITE_TOKEN` 추가
+- content script 뼈대: `smartstore.js`, `navermap.js`, `naverblog.js`
+- **변경 파일**: `extension/*`, `types/index.ts`, `app/api/shopping/route.ts`, `app/api/place/route.ts`, `app/api/images/save/route.ts`, `.env.local`, `package.json`
+
 ### 메모리 파일 생성
 - `user_profile.md`, `project_context.md`, `feedback.md` 생성
 - CLAUDE.md에 메모리 업데이트 필수 규칙 추가
