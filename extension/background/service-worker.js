@@ -69,7 +69,19 @@ async function handleGenerateFromUrl(url, sendResponse) {
     // 1. 상품 페이지 열기
     productTab = await chrome.tabs.create({ url, active: true });
     await waitForTabLoad(productTab.id);
-    await sleep(2000);
+    await sleep(1500);
+
+    // 로그인 여부 확인 (수집 전)
+    const afterLoadTab = await chrome.tabs.get(productTab.id);
+    if (afterLoadTab.url?.includes("nid.naver.com")) {
+      await saveState({ status: "generating", progress: { percent: 8, text: "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다." } });
+      await waitForTabUrl(productTab.id, (u) => !u.includes("nid.naver.com"), 180000);
+      await sleep(1000);
+      // 로그인 완료 → 상품 페이지로 재이동
+      await chrome.tabs.update(productTab.id, { url });
+      await waitForTabLoad(productTab.id);
+      await sleep(2000);
+    }
 
     await saveProgress(20, "페이지 로딩 완료. 데이터 수집 준비 중...");
 
