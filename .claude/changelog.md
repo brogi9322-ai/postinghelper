@@ -43,3 +43,13 @@
 - `.claude/sprints.md` — 스프린트 현황 및 백로그
 - `.claude/changelog.md` — 이 파일
 - **변경 파일**: `.claude/sprints.md`, `.claude/changelog.md`, `CLAUDE.md`
+
+### 요구사항 확정 + 전체 계획 수립
+- 서비스 방향 확정: 크롬 익스텐션 + Next.js 백엔드
+- 포스팅 종류 6개 (쇼핑 1순위, 플레이스 2순위)
+- 블로그 자동 입력 방식 확정: 한 글자씩 타이핑 + 이미지 교차 삽입
+- `.claude/prd.md` 생성 — 전체 요구사항 문서
+- `.claude/sprints.md` 전면 개편 — Sprint 1~8 전체 계획
+- `CLAUDE.md` 전면 개편 — 새 아키텍처 반영
+- `.claude/agents/extension-builder.md` 생성
+- **변경 파일**: `.claude/prd.md`, `.claude/sprints.md`, `CLAUDE.md`, `.claude/agents/extension-builder.md`
