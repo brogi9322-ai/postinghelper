@@ -14,7 +14,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // 허용된 메시지 타입만 처리
-  if (!["GENERATE_POSTING", "START_POSTING"].includes(message.type)) return;
+  const ALLOWED_TYPES = ["GENERATE_POSTING", "START_POSTING", "POSTING_PROGRESS", "POSTING_DONE", "ERROR"];
+  if (!ALLOWED_TYPES.includes(message.type)) return;
+
+  // naverblog.js에서 올라오는 진행 상황 → 팝업으로 포워딩
+  if (["POSTING_PROGRESS", "POSTING_DONE", "ERROR"].includes(message.type)) {
+    if (message.type === "POSTING_DONE" || message.type === "ERROR") {
+      isPosting = false;
+    }
+    chrome.runtime.sendMessage(message).catch(() => {});
+    return;
+  }
 
   if (message.type === "GENERATE_POSTING") {
     if (!validateGeneratePayload(message.payload)) {
@@ -124,18 +134,25 @@ async function handleStartPosting({ posting }, sender, sendResponse) {
     });
 
     await waitForTabLoad(tab.id);
+    // 에디터 JS 초기화 시간 확보
+    await sleep(2500);
 
     await chrome.tabs.sendMessage(tab.id, {
-      type: "START_POSTING",
+      type: "DO_POSTING",
       payload: { posting },
     });
 
     sendResponse({ success: true });
+    // isPosting은 POSTING_DONE / ERROR 수신 시 해제됨
   } catch (err) {
-    sendResponse({ success: false, error: String(err.message || "블로그 이동 실패") });
-  } finally {
     isPosting = false;
+    sendResponse({ success: false, error: String(err.message || "블로그 이동 실패") });
   }
+}
+
+// ---- 유틸 ----
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ---- 탭 로딩 완료 대기 ----

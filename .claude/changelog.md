@@ -58,6 +58,23 @@
 - **보안 테스트 14개** (`__tests__/api-images-save.test.ts`) 전부 통과
 - **변경 파일**: `app/api/images/save/route.ts`, `app/api/shopping/route.ts`, `extension/background/service-worker.js`, `extension/popup/popup.js`, `extension/content/smartstore.js`, `__tests__/api-images-save.test.ts`
 
+### Sprint 5 — 네이버 블로그 자동 포스팅
+- `extension/content/naverblog.js` 전면 구현
+  - `waitForEditorDocument()`: mainFrame iframe 대응, 20초 타임아웃
+  - `getContentEditable()`: 스마트에디터 ONE 다중 선택자 fallback
+  - `typeText()`: 한 글자씩 20~60ms 랜덤 딜레이 타이핑
+  - `insertImage()`: fetch → MIME 검증 → File → DataTransfer drop+paste 이중 시도
+  - `setTitle()`: 제목 입력란 다중 선택자 대응, 한 글자씩 입력
+  - `setTags()`: 태그 최대 10개, 30자 제한, Enter로 확정
+  - 메시지 보안: `sender.tab` 체크로 다른 content script 차단
+- `extension/background/service-worker.js` 업데이트
+  - `handleStartPosting()`: `DO_POSTING` 전송 + 2.5초 에디터 초기화 대기
+  - `isPosting` 플래그: POSTING_DONE/ERROR 수신 시 해제 (이전엔 즉시 해제)
+  - POSTING_PROGRESS/POSTING_DONE/ERROR 메시지 팝업으로 포워딩
+  - `sleep()` 유틸 함수 추가
+- `extension/manifest.json`: Vercel Blob 도메인 host_permissions 추가
+- **변경 파일**: `extension/content/naverblog.js`, `extension/background/service-worker.js`, `extension/manifest.json`
+
 ### Sprint 4 — 쇼핑 포스팅 생성 + 미리보기
 - `/api/shopping` 에이전트 루프 완성: `plan_structure` → `generate_tags` → `end_turn`
   - `plan_structure` tool: Claude가 글 구조(텍스트/이미지 순서, imageIndex) 결정
