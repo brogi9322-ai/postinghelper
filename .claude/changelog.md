@@ -44,6 +44,11 @@
 - `.claude/changelog.md` — 이 파일
 - **변경 파일**: `.claude/sprints.md`, `.claude/changelog.md`, `CLAUDE.md`
 
+### 메모리 파일 생성
+- `user_profile.md`, `project_context.md`, `feedback.md` 생성
+- CLAUDE.md에 메모리 업데이트 필수 규칙 추가
+- **변경 파일**: `CLAUDE.md`, `memory/*.md`
+
 ### 요구사항 확정 + 전체 계획 수립
 - 서비스 방향 확정: 크롬 익스텐션 + Next.js 백엔드
 - 포스팅 종류 6개 (쇼핑 1순위, 플레이스 2순위)
