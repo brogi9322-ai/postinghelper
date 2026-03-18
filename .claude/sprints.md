@@ -7,7 +7,7 @@
 
 ## 현재 스프린트
 
-**Sprint 4** — 🔴 진행 예정 (쇼핑 포스팅 생성 + 이미지 저장 고도화)
+**Sprint 5** — 🔴 진행 예정 (쇼핑: 네이버 블로그 자동 포스팅)
 
 ---
 
@@ -61,18 +61,18 @@
 
 ---
 
-### 🔲 Sprint 4 — 쇼핑: 포스팅 생성 + 이미지 저장
-**목표**: Claude가 쇼핑 포스팅 생성, 이미지 Vercel Blob 저장
+### ✅ Sprint 4 — 쇼핑: 포스팅 생성 + 이미지 저장
+**기간**: 2026-03-18 | **상태**: 완료
 
 | 항목 | 상태 |
 |---|---|
-| `/api/shopping` 엔드포인트 구현 | 🔲 |
-| 쇼핑 전용 system prompt + tools 작성 | 🔲 |
-| Claude가 글 구조 + 이미지 삽입 위치 결정 | 🔲 |
-| SEO 태그 생성 | 🔲 |
-| `/api/images/save` — 이미지 URL → Vercel Blob 저장 | 🔲 |
-| 팝업에서 생성된 포스팅 미리보기 | 🔲 |
-| 유닛 테스트 작성 | 🔲 |
+| `/api/shopping` 엔드포인트 구현 (에이전트 루프) | ✅ |
+| 쇼핑 전용 system prompt + tools 작성 | ✅ |
+| Claude가 글 구조 + 이미지 삽입 위치 결정 (`plan_structure`) | ✅ |
+| SEO 태그 생성 (`generate_tags`) | ✅ |
+| `/api/images/save` — 이미지 URL → Vercel Blob 저장 | ✅ |
+| 팝업에서 생성된 포스팅 미리보기 | ✅ |
+| 유닛 테스트 작성 (14개 통과) | ✅ |
 
 ---
 
