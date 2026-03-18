@@ -58,6 +58,22 @@
 - **보안 테스트 14개** (`__tests__/api-images-save.test.ts`) 전부 통과
 - **변경 파일**: `app/api/images/save/route.ts`, `app/api/shopping/route.ts`, `extension/background/service-worker.js`, `extension/popup/popup.js`, `extension/content/smartstore.js`, `__tests__/api-images-save.test.ts`
 
+### 배포 준비 + 버그 수정 (Sprint 5 후속)
+- PR #2(sprint/4), PR #3(sprint/5) → main 머지 완료 (CI 통과)
+- `lib/cors.ts` 생성 — 크롬 익스텐션 CORS 허용 (`Access-Control-Allow-Origin: *`)
+- 모든 API 라우트에 OPTIONS 핸들러 + `withCors()` 적용
+- `extension/manifest.json` — `notifications` 권한 추가
+- `service-worker.js` — chrome.storage.local 기반 상태 관리로 전면 전환
+  - 팝업 닫혀도 진행 상황 유지, 완료 시 Chrome 알림 표시
+- `popup.js` — storage.onChanged 리스너로 실시간 상태 복원
+- `smartstore.js` — `:contains()` CSS 선택자 제거 (DOMException 유발 버그 수정)
+- 데이터 수집 중 진행 상황 메시지 추가 (32%~50% 구간)
+- `service-worker.js` — sendMessageToTab() 최대 5회 재시도 로직 추가
+- 로그인 감지: nid.naver.com 리다이렉트 감지 → 로그인 완료 후 자동 진행
+- UX 전면 개편: 제휴 URL 입력만으로 전체 흐름 자동화 (상품 페이지 직접 방문 불필요)
+- `formatRawPosting()`: API 키 없을 때 수집 데이터로 포스팅 직접 생성 (폴백)
+- **변경 파일**: `lib/cors.ts`, `app/api/shopping/route.ts`, `app/api/place/route.ts`, `app/api/images/save/route.ts`, `extension/manifest.json`, `extension/background/service-worker.js`, `extension/popup/popup.html`, `extension/popup/popup.js`, `extension/content/smartstore.js`
+
 ### Sprint 5 — 네이버 블로그 자동 포스팅
 - `extension/content/naverblog.js` 전면 구현
   - `waitForEditorDocument()`: mainFrame iframe 대응, 20초 타임아웃

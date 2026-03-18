@@ -173,3 +173,55 @@
 **작업**: 이 파일(`session-log.md`) 생성
 - 이전 대화 전체 내용을 소급하여 [01]~[14] 기록
 - 이후 매 프롬프트마다 이 파일에 항목 추가
+
+---
+
+### [18] "테스트해보고 괜찮으면 배포할게."
+**작업**: 배포 준비 + Sprint 8 진행
+- PR #2(sprint/4), PR #3(sprint/5) → main 머지 완료 (CI 통과)
+- `lib/cors.ts` 생성 — 크롬 익스텐션 CORS 허용
+- 모든 API 라우트에 OPTIONS 핸들러 + `withCors()` 적용
+- `manifest.json` — `notifications` 권한 추가
+- `service-worker.js` — chrome.storage.local 기반 상태 관리 전환, 팝업 닫혀도 진행 유지
+- `popup.js` — storage.onChanged 리스너로 실시간 상태 복원
+- `smartstore.js` — 데이터 수집 중 진행 상황 메시지 추가 (32%~50%)
+- `service-worker.js` — sendMessageToTab() 최대 5회 재시도 로직
+
+---
+
+### [19] "확장 프로그램을 로드하지 못함 / Could not load icon 'icons/icon16.png'"
+**작업**: 아이콘 파일 누락 수정
+- Python으로 16/48/128px 파란 원 PNG 아이콘 3개 생성
+- `extension/icons/` 폴더에 저장
+- 익스텐션 정상 로드 확인
+
+---
+
+### [20] "데이터 수집 실패가 떴어" / 상품 페이지 멈춤 현상
+**작업**: smartstore.js :contains() 버그 수정
+- `clickReviewTab()`에서 `:contains()` CSS 선택자 → `DOMException` 유발
+- 텍스트 기반 탭 탐지 방식으로 교체
+- 상품 하단까지 스크롤 후 멈춤 현상 해결
+
+---
+
+### [21] "난 그냥 제휴마케팅 url 입력만 하면 알아서 됐으면 좋겠어"
+**작업**: UX 전면 개편 — 제휴 URL 입력만으로 전체 흐름 자동화
+- `service-worker.js` — `handleGenerateFromUrl()`: URL 받으면 탭 열기→수집→생성→저장 자동 처리
+- 로그인 감지: `nid.naver.com` 리다이렉트 → 로그인 완료 후 자동 진행
+- `popup.html/js` — 페이지 감지 로직 제거, 제휴 URL 입력창만 남김
+- `formatRawPosting()` — API 키 없을 때 수집 데이터로 포스팅 직접 생성 (폴백)
+
+---
+
+### [22] "Access to fetch ... blocked by CORS policy" / "vercel 계정 만들었어. 보안 최고로 신경써야돼"
+**작업**: CORS 수정 + 배포 준비 + 보안 지침 강화
+- CORS: `lib/cors.ts` withCors() + OPTIONS 핸들러 적용 (이미 [18]에서 완료)
+- 배포 절차 안내:
+  1. `sudo chown -R $(whoami) ~/.npm` (npm 권한 수정)
+  2. `npm install -g vercel`
+  3. `vercel login` (GitHub)
+  4. `vercel` 명령어로 배포
+  5. Vercel 대시보드에서 환경변수 설정 (`ANTHROPIC_API_KEY`, `BLOB_READ_WRITE_TOKEN`)
+- API 키/토큰은 절대 git에 커밋 금지 — Vercel 대시보드 전용
+- `memory/feedback.md` — 4개 파일 업데이트 규칙 강화 (절대 빠지면 안 됨)

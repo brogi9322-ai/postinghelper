@@ -7,7 +7,7 @@
 
 ## 현재 스프린트
 
-**Sprint 6** — 🔴 진행 예정 (플레이스: 데이터 수집)
+**Sprint 8** — 🔴 진행 예정 (배포: Vercel + Chrome Web Store)
 
 ---
 
@@ -119,15 +119,18 @@
 
 ---
 
-### 🔲 Sprint 8 — 마무리 및 배포
+### 🔄 Sprint 8 — 마무리 및 배포
 **목표**: 안정화, Chrome Web Store 배포, Vercel 배포
 
 | 항목 | 상태 |
 |---|---|
-| 전체 E2E 테스트 | 🔲 |
-| 익스텐션 Chrome Web Store 배포 | 🔲 |
+| PR #2, #3 main 머지 | ✅ |
+| CORS 헤더 추가 | ✅ |
+| Vercel CLI 설치 | 🔲 |
 | 백엔드 Vercel 배포 | 🔲 |
-| README 작성 | 🔲 |
+| Vercel 환경변수 설정 (대시보드에서 직접) | 🔲 |
+| 익스텐션 실제 테스트 (end-to-end) | 🔲 |
+| 익스텐션 Chrome Web Store 배포 | 🔲 |
 
 ---
 
