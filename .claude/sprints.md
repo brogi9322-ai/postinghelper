@@ -126,9 +126,9 @@
 |---|---|
 | PR #2, #3 main 머지 | ✅ |
 | CORS 헤더 추가 | ✅ |
-| Vercel CLI 설치 | 🔲 |
-| 백엔드 Vercel 배포 | 🔲 |
-| Vercel 환경변수 설정 (대시보드에서 직접) | 🔲 |
+| Vercel CLI 설치 (npx 방식) | ✅ |
+| 백엔드 Vercel 배포 | ✅ |
+| Vercel 환경변수 설정 (BLOB_READ_WRITE_TOKEN) | ✅ |
 | 익스텐션 실제 테스트 (end-to-end) | 🔲 |
 | 익스텐션 Chrome Web Store 배포 | 🔲 |
 

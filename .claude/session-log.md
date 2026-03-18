@@ -214,6 +214,23 @@
 
 ---
 
+### [23] "직접 해줘" (Vercel 배포)
+**작업**: Sprint 8 — Vercel 배포 완료
+- `npx vercel --yes`로 배포: https://postinghelper.vercel.app
+- `BLOB_READ_WRITE_TOKEN` Vercel 대시보드에서 환경변수 설정
+- API 엔드포인트 curl 테스트: CORS ✅, 폴백 동작 ✅
+
+---
+
+### [24] "로그인 안되어있으면 로그인 창 띄워줘"
+**작업**: 데이터 수집 단계 로그인 감지 추가
+- `handleGenerateFromUrl()`에 `nid.naver.com` 리다이렉트 감지 추가
+- 로그인 대기 → 완료 후 원래 상품 URL 재이동
+- 기존에는 `handleStartPosting()`에만 로그인 체크가 있었음
+- typecheck + 14개 테스트 통과 → 커밋 + 푸시
+
+---
+
 ### [22] "Access to fetch ... blocked by CORS policy" / "vercel 계정 만들었어. 보안 최고로 신경써야돼"
 **작업**: CORS 수정 + 배포 준비 + 보안 지침 강화
 - CORS: `lib/cors.ts` withCors() + OPTIONS 핸들러 적용 (이미 [18]에서 완료)

@@ -58,6 +58,13 @@
 - **보안 테스트 14개** (`__tests__/api-images-save.test.ts`) 전부 통과
 - **변경 파일**: `app/api/images/save/route.ts`, `app/api/shopping/route.ts`, `extension/background/service-worker.js`, `extension/popup/popup.js`, `extension/content/smartstore.js`, `__tests__/api-images-save.test.ts`
 
+### Sprint 8 — 배포 완료 + 로그인 감지 수정
+- `npx vercel`로 Vercel 배포 완료: https://postinghelper.vercel.app
+- `BLOB_READ_WRITE_TOKEN` Vercel 환경변수 설정 완료
+- `service-worker.js` — `handleGenerateFromUrl()`에 로그인 감지 추가
+  - 상품 탭 로드 후 `nid.naver.com` 리다이렉트 감지 → 로그인 대기 → 상품 URL 재이동
+- **변경 파일**: `extension/background/service-worker.js`
+
 ### 배포 준비 + 버그 수정 (Sprint 5 후속)
 - PR #2(sprint/4), PR #3(sprint/5) → main 머지 완료 (CI 통과)
 - `lib/cors.ts` 생성 — 크롬 익스텐션 CORS 허용 (`Access-Control-Allow-Origin: *`)
