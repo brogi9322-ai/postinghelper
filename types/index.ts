@@ -19,7 +19,8 @@ export interface ShoppingData {
   };
   shipping: string;
   seller: string;
-  url: string;
+  url: string;         // 현재 페이지 URL (brand.naver.com or smartstore.naver.com)
+  affiliateUrl: string; // 사용자 제휴 링크 (naver.me/xxx) — 블로그 포스팅에 삽입
 }
 
 // ---- 플레이스 ----

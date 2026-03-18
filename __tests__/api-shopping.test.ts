@@ -25,7 +25,8 @@ const sampleData: ShoppingData = {
   reviews: { rating: 4.8, count: 120, highlights: ["배송 빠름", "품질 좋음"] },
   shipping: "무료배송",
   seller: "테스트스토어",
-  url: "https://smartstore.naver.com/test/products/123",
+  url: "https://brand.naver.com/da_room/products/123",
+  affiliateUrl: "https://naver.me/FTdSNwF3",
 };
 
 function makeRequest(body: object) {

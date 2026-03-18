@@ -7,6 +7,10 @@ const progressFill = document.getElementById("progress-fill");
 const progressText = document.getElementById("progress-text");
 const btnGenerate = document.getElementById("btn-generate");
 const btnPost = document.getElementById("btn-post");
+const affiliateWrap = document.getElementById("affiliate-wrap");
+const affiliateUrlInput = document.getElementById("affiliate-url");
+
+const SHOPPING_DOMAINS = ["smartstore.naver.com", "brand.naver.com", "brandconnect.naver.com"];
 
 let currentPageType = null; // "shopping" | "place" | null
 let generatedPosting = null;
@@ -15,9 +19,10 @@ let generatedPosting = null;
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const url = tabs[0]?.url || "";
 
-  if (url.includes("smartstore.naver.com")) {
+  if (SHOPPING_DOMAINS.some((d) => url.includes(d))) {
     currentPageType = "shopping";
     pageTypeEl.textContent = "🛍️ 스마트스토어 감지됨";
+    affiliateWrap.classList.remove("hidden"); // 제휴 링크 입력 표시
     btnGenerate.disabled = false;
   } else if (url.includes("map.naver.com")) {
     currentPageType = "place";
@@ -32,16 +37,25 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
 // ---- 포스팅 생성 버튼 ----
 btnGenerate.addEventListener("click", async () => {
+  const affiliateUrl = affiliateUrlInput?.value?.trim() || "";
+
+  if (currentPageType === "shopping" && !affiliateUrl) {
+    setStatus("error", "제휴 링크를 입력해주세요.");
+    return;
+  }
+
   setStatus("info", "데이터 수집 중...");
   showProgress(10, "페이지 데이터 수집 중...");
   btnGenerate.disabled = true;
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  // content script에 데이터 수집 요청
   chrome.tabs.sendMessage(
     tab.id,
-    { type: currentPageType === "shopping" ? "COLLECT_SHOPPING" : "COLLECT_PLACE" },
+    {
+      type: currentPageType === "shopping" ? "COLLECT_SHOPPING" : "COLLECT_PLACE",
+      affiliateUrl, // 제휴 링크를 content script로 전달
+    },
     (response) => {
       if (chrome.runtime.lastError || !response?.success) {
         setStatus("error", "데이터 수집 실패. 페이지를 새로고침 후 다시 시도해주세요.");
@@ -52,7 +66,6 @@ btnGenerate.addEventListener("click", async () => {
 
       showProgress(40, "Claude AI가 포스팅 생성 중...");
 
-      // background로 포스팅 생성 요청
       chrome.runtime.sendMessage(
         {
           type: "GENERATE_POSTING",

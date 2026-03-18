@@ -44,6 +44,14 @@
 - `.claude/changelog.md` — 이 파일
 - **변경 파일**: `.claude/sprints.md`, `.claude/changelog.md`, `CLAUDE.md`
 
+### 제휴 링크 지원 추가
+- `ShoppingData` 타입에 `affiliateUrl` 필드 추가
+- 팝업에 제휴 링크 입력창 추가 (쇼핑 페이지 감지 시 표시)
+- `brand.naver.com` manifest 및 content_scripts에 추가
+- `smartstore.js`에서 `affiliateUrl` 수집 데이터에 포함
+- `/api/shopping` 프롬프트에 제휴 링크 삽입 지시 추가
+- **변경 파일**: `types/index.ts`, `extension/manifest.json`, `extension/popup/popup.html`, `extension/popup/popup.css`, `extension/popup/popup.js`, `extension/content/smartstore.js`, `app/api/shopping/route.ts`, `__tests__/api-shopping.test.ts`
+
 ### Sprint 3 — 스마트스토어 데이터 수집
 - `extension/content/smartstore.js` 전면 구현
   - 상품명, 가격(정가/할인가), 판매자, 배송 추출 (다중 선택자 fallback)

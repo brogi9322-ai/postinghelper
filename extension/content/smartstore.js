@@ -3,7 +3,9 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type !== "COLLECT_SHOPPING") return;
 
-  collectShoppingData()
+  const affiliateUrl = message.affiliateUrl || "";
+
+  collectShoppingData(affiliateUrl)
     .then((data) => sendResponse({ success: true, data }))
     .catch((err) => sendResponse({ success: false, error: err.message }));
 
@@ -13,7 +15,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ============================================================
 // 메인 수집 함수
 // ============================================================
-async function collectShoppingData() {
+async function collectShoppingData(affiliateUrl) {
   // 페이지가 완전히 로드될 때까지 대기
   await waitForElement('[class*="productTitle"], h3[class*="title"], ._2-I30XS1lA', 10000);
 
@@ -42,6 +44,7 @@ async function collectShoppingData() {
     shipping,
     seller,
     url: window.location.href,
+    affiliateUrl, // 팝업에서 사용자가 입력한 제휴 링크
   };
 }
 

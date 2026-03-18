@@ -29,6 +29,9 @@ export async function POST(req: NextRequest) {
 판매자: ${data.seller}
 이미지 수: ${data.images.length}개
 
+제휴 링크: ${data.affiliateUrl}
+(마무리 섹션에 "아래 링크에서 구매할 수 있어요" 형태로 제휴 링크를 자연스럽게 삽입해주세요.)
+
 반드시 JSON 형식으로 응답하세요:
 {
   "title": "포스팅 제목",
@@ -39,7 +42,8 @@ export async function POST(req: NextRequest) {
   ],
   "tags": ["태그1", "태그2"]
 }
-IMAGE_0, IMAGE_1 등은 images 배열의 인덱스를 의미합니다.`;
+IMAGE_0, IMAGE_1 등은 images 배열의 인덱스를 의미합니다.
+마무리 text 섹션에는 반드시 제휴 링크를 포함해주세요.`;
 
   const message = await anthropic.messages.create({
     model: "claude-opus-4-6",
