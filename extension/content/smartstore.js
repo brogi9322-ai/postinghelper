@@ -32,10 +32,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ============================================================
 // 메인 수집 함수
 // ============================================================
+function sendProgress(percent, text) {
+  chrome.runtime.sendMessage({
+    type: "POSTING_PROGRESS",
+    payload: { percent, text },
+  }).catch(() => {});
+}
+
 async function collectShoppingData(affiliateUrl) {
   // 페이지가 완전히 로드될 때까지 대기
+  sendProgress(32, "상품 정보 로딩 대기 중...");
   await waitForElement('[class*="productTitle"], h3[class*="title"], ._2-I30XS1lA', 10000);
 
+  sendProgress(36, "상품 정보 추출 중...");
   const productName = getProductName();
   const price = getPrice();
   const seller = getSeller();
@@ -43,11 +52,13 @@ async function collectShoppingData(affiliateUrl) {
   const shipping = getShipping();
 
   // 리뷰 탭 클릭 후 수집
+  sendProgress(42, "리뷰 수집 중...");
   await clickReviewTab();
   await sleep(1500);
   const reviews = await collectReviews();
 
   // 상세 페이지 이미지 수집 (스크롤 후 iframe 포함)
+  sendProgress(50, "이미지 수집 중...");
   const detailImages = await collectDetailImages();
 
   const allImages = [...new Set([...mainImages, ...detailImages])];

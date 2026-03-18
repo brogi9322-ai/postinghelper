@@ -160,6 +160,22 @@ async function handleStartPosting({ posting }, sendResponse) {
     });
 
     await waitForTabLoad(tab.id);
+
+    // 로그인 여부 확인
+    const currentTab = await chrome.tabs.get(tab.id);
+    if (currentTab.url?.includes("nid.naver.com")) {
+      sendGenerateProgress(5, "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다.");
+
+      // 로그인 완료 후 blog.naver.com으로 돌아올 때까지 대기 (최대 3분)
+      await waitForTabUrl(tab.id, (url) => url.includes("blog.naver.com"), 180000);
+      await sleep(1000);
+
+      // 로그인 후 글쓰기 페이지로 이동
+      await chrome.tabs.update(tab.id, { url: "https://blog.naver.com/PostWriteForm.naver" });
+      await waitForTabLoad(tab.id);
+    }
+
+    sendGenerateProgress(10, "블로그 에디터 로딩 중...");
     await sleep(2500); // 에디터 JS 초기화 대기
 
     await chrome.tabs.sendMessage(tab.id, {
@@ -244,20 +260,49 @@ function sendGenerateProgress(percent, text) {
   }).catch(() => {});
 }
 
-function sendMessageToTab(tabId, message) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
+// content script가 아직 준비 안 됐을 수 있어서 최대 5회 재시도
+async function sendMessageToTab(tabId, message, retries = 5, delayMs = 2000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, message, (res) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve(res);
+        });
+      });
+      return response;
+    } catch (err) {
+      if (i < retries - 1) {
+        await sleep(delayMs);
       } else {
-        resolve(response);
+        throw err;
       }
-    });
-  });
+    }
+  }
 }
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// 탭 URL이 조건을 만족할 때까지 대기 (로그인 완료 감지용)
+function waitForTabUrl(tabId, urlCheck, timeoutMs = 180000) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      reject(new Error("로그인 대기 타임아웃 (3분)"));
+    }, timeoutMs);
+
+    function listener(id, info, tab) {
+      if (id === tabId && info.status === "complete" && urlCheck(tab.url || "")) {
+        clearTimeout(timeout);
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    }
+
+    chrome.tabs.onUpdated.addListener(listener);
+  });
 }
 
 function waitForTabLoad(tabId) {
