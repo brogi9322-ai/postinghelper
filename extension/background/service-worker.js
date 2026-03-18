@@ -134,10 +134,12 @@ async function handleGenerateFromUrl(url, sendResponse) {
 
     // 6. storage에 완성된 포스팅 저장 → 팝업이 열리면 이걸 읽음
     await saveState({ status: "ready", progress: { percent: 100, text: "포스팅 생성 완료!" }, posting });
+    showNotification("포스팅 생성 완료 ✅", "익스텐션 아이콘을 클릭해서 미리보기를 확인하세요.");
 
   } catch (err) {
     if (productTab) chrome.tabs.remove(productTab.id).catch(() => {});
     await saveState({ status: "error", error: String(err.message || "오류 발생") });
+    showNotification("포스팅 생성 실패 ❌", String(err.message || "오류가 발생했습니다. 익스텐션을 다시 열어 확인하세요."));
   } finally {
     isGenerating = false;
   }
@@ -234,6 +236,15 @@ function saveProgress(percent, text) {
 // ============================================================
 // 유틸
 // ============================================================
+function showNotification(title, message) {
+  chrome.notifications.create({
+    type: "basic",
+    iconUrl: "icons/icon48.png",
+    title: String(title),
+    message: String(message),
+  });
+}
+
 function validateStartPayload(payload) {
   if (!payload || typeof payload !== "object") return false;
   if (!payload.posting || typeof payload.posting !== "object") return false;
