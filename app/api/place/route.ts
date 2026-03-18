@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { anthropic } from "@/lib/claude";
+import { withCors, handleOptions } from "@/lib/cors";
 import type { PlaceRequest, PostingResponse, PostingSection } from "@/types";
+
+export function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
 
 // Sprint 7에서 system prompt와 tools 완성 예정
 const SYSTEM_PROMPT = `당신은 플레이스(맛집/카페/장소) 블로그 포스팅 전문 작가입니다.
@@ -71,5 +76,5 @@ export async function POST(req: NextRequest) {
 
   const posting = { title: parsed.title, sections, tags: parsed.tags };
 
-  return NextResponse.json({ posting } satisfies PostingResponse);
+  return withCors(NextResponse.json({ posting } satisfies PostingResponse));
 }

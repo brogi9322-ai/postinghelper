@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
+import { withCors, handleOptions } from "@/lib/cors";
 import type { ImageSaveRequest, ImageSaveResponse } from "@/types";
+
+export function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
 
 // 허용된 이미지 도메인 (네이버 공식 도메인만 허용 — SSRF 방지)
 const ALLOWED_DOMAINS = [
@@ -120,5 +125,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ savedUrls } satisfies ImageSaveResponse);
+  return withCors(NextResponse.json({ savedUrls } satisfies ImageSaveResponse));
 }

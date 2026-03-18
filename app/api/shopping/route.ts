@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { anthropic } from "@/lib/claude";
+import { withCors, handleOptions } from "@/lib/cors";
 import type {
   ShoppingRequest,
   PostingResponse,
   PostingSection,
 } from "@/types";
+
+export function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
 
 // ============================================================
 // 에이전트 지침 (system prompt)
@@ -233,5 +238,5 @@ ${JSON.stringify(safe, null, 2)}
     tags,
   };
 
-  return NextResponse.json({ posting } satisfies PostingResponse);
+  return withCors(NextResponse.json({ posting } satisfies PostingResponse));
 }
