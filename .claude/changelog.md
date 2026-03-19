@@ -7,6 +7,13 @@
 
 ## 2026-03-19
 
+### 블로그 ID 입력란 추가 + PostWriteForm blogId 수정
+- `extension/popup/popup.html` — 블로그 ID 입력란 추가 (한 번 입력하면 storage에 저장)
+- `extension/popup/popup.js` — blogId storage 불러오기/저장, START_POSTING 메시지에 blogId 포함
+- `extension/popup/popup.css` — .input-hint 스타일 추가
+- `extension/background/service-worker.js` — handleStartPosting()에서 blogId 직접 사용, blog.naver.com 홈 이동 로직 제거
+- **변경 파일**: `extension/popup/popup.html`, `extension/popup/popup.js`, `extension/popup/popup.css`, `extension/background/service-worker.js`
+
 ### executeScript 권한 에러 수정
 - `extension/background/service-worker.js` — blogId 추출 방식 변경
   - 기존: `chrome.scripting.executeScript` → "Cannot access contents of the page" 에러 발생

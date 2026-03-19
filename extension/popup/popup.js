@@ -7,12 +7,24 @@ const progressText = document.getElementById("progress-text");
 const btnGenerate = document.getElementById("btn-generate");
 const btnPost = document.getElementById("btn-post");
 const affiliateUrlInput = document.getElementById("affiliate-url");
+const blogIdInput = document.getElementById("blog-id");
 const previewWrap = document.getElementById("preview-wrap");
 const previewContent = document.getElementById("preview-content");
 const previewTitle = document.getElementById("preview-title");
 const previewTags = document.getElementById("preview-tags");
 const previewSections = document.getElementById("preview-sections");
 const btnPreviewToggle = document.getElementById("btn-preview-toggle");
+
+// 저장된 blogId 불러오기
+chrome.storage.local.get(["blogId"], (data) => {
+  if (data.blogId) blogIdInput.value = String(data.blogId);
+});
+
+// blogId 입력 시 자동 저장
+blogIdInput.addEventListener("input", () => {
+  const val = blogIdInput.value.trim();
+  chrome.storage.local.set({ blogId: val });
+});
 
 let generatedPosting = null;
 
@@ -139,12 +151,19 @@ btnGenerate.addEventListener("click", () => {
 btnPost.addEventListener("click", () => {
   if (!generatedPosting) return;
 
+  const blogId = blogIdInput.value.trim();
+  if (!blogId) {
+    setStatus("error", "네이버 블로그 ID를 입력해주세요.");
+    blogIdInput.focus();
+    return;
+  }
+
   setStatus("info", "네이버 블로그로 이동 중...");
   showProgress(5, "준비 중...");
   btnPost.disabled = true;
 
   chrome.runtime.sendMessage(
-    { type: "START_POSTING", payload: { posting: generatedPosting } },
+    { type: "START_POSTING", payload: { posting: generatedPosting, blogId } },
     (result) => {
       if (!result?.success) {
         setStatus("error", result?.error || "블로그 포스팅 실패");

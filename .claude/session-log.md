@@ -231,6 +231,18 @@
 
 ---
 
+### [28] "접근하고자하는 블로그 아이디가 없습니다" 에러
+**원인**: blog.naver.com URL에서 blogId 추출 실패 → PostWriteForm.naver에 blogId 없이 접근
+**작업**:
+- `popup.html` — 블로그 ID 입력란 추가 (한 번 입력하면 storage 저장)
+- `popup.js` — blogId 저장/불러오기, START_POSTING에 blogId 전달, 미입력 시 에러 안내
+- `popup.css` — .input-hint 스타일 추가
+- `service-worker.js` — handleStartPosting()에서 blogId 파라미터 직접 사용, blog.naver.com 홈 이동 로직 제거
+- `validateStartPayload()` — blogId 필드 검증 추가
+- **변경 파일**: `extension/popup/popup.html`, `extension/popup/popup.js`, `extension/popup/popup.css`, `extension/background/service-worker.js`
+
+---
+
 ### [27] "여전히 버튼 있어" / "블로그에 올리기하니까 Cannot access contents of the page..."
 **원인**: `chrome.scripting.executeScript` 호출 시 "Cannot access contents of the page" 에러
 **작업**:

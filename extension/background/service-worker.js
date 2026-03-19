@@ -160,7 +160,7 @@ async function handleGenerateFromUrl(url, sendResponse) {
 // ============================================================
 // 블로그 자동 포스팅
 // ============================================================
-async function handleStartPosting({ posting }, sendResponse) {
+async function handleStartPosting({ posting, blogId }, sendResponse) {
   if (isPosting) {
     sendResponse({ success: false, error: "이미 포스팅이 진행 중입니다." });
     return;
@@ -168,42 +168,22 @@ async function handleStartPosting({ posting }, sendResponse) {
 
   isPosting = true;
   try {
-    // 1. blog.naver.com 홈에서 blogId 추출 (PostWriteForm은 blogId 필수)
-    await saveState({ status: "posting", progress: { percent: 3, text: "블로그 정보 확인 중..." } });
-    const homeTab = await chrome.tabs.create({ url: "https://blog.naver.com", active: true });
-    await waitForTabLoad(homeTab.id);
-
-    // 로그인 확인
-    const homeTabInfo = await chrome.tabs.get(homeTab.id);
-    if (homeTabInfo.url?.includes("nid.naver.com")) {
-      await saveState({ status: "posting", progress: { percent: 5, text: "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다." } });
-      await waitForTabUrl(homeTab.id, (url) => url.includes("blog.naver.com"), 180000);
-      await sleep(1000);
-      await chrome.tabs.update(homeTab.id, { url: "https://blog.naver.com" });
-      await waitForTabLoad(homeTab.id);
-    }
-
-    await sleep(1500);
-
-    // 탭 URL에서 blogId 추출 (executeScript 없이)
-    // blog.naver.com/<blogId> 형식으로 리다이렉트되는 경우 추출 가능
-    const finalTabInfo = await chrome.tabs.get(homeTab.id);
-    const finalUrl = finalTabInfo.url || "";
-    const urlMatch = finalUrl.match(/blog\.naver\.com\/([^/?#]+)/);
-    const RESERVED = ["nv", "api", "PostWrite", "PostList", "widget", "gongnote"];
-    const blogId = (urlMatch && urlMatch[1] && !RESERVED.includes(urlMatch[1]))
-      ? urlMatch[1]
-      : null;
-    chrome.tabs.remove(homeTab.id).catch(() => {});
-
-    // 2. 글쓰기 페이지로 이동 (blogId 있으면 파라미터 포함)
-    const writeUrl = blogId
-      ? `https://blog.naver.com/PostWriteForm.naver?blogId=${encodeURIComponent(blogId)}`
-      : "https://blog.naver.com/PostWriteForm.naver";
+    const writeUrl = `https://blog.naver.com/PostWriteForm.naver?blogId=${encodeURIComponent(String(blogId))}`;
 
     await saveProgress(10, "블로그 에디터 로딩 중...");
     const tab = await chrome.tabs.create({ url: writeUrl });
     await waitForTabLoad(tab.id);
+
+    // 로그인 여부 확인
+    const currentTab = await chrome.tabs.get(tab.id);
+    if (currentTab.url?.includes("nid.naver.com")) {
+      await saveState({ status: "posting", progress: { percent: 5, text: "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다." } });
+      await waitForTabUrl(tab.id, (url) => url.includes("blog.naver.com"), 180000);
+      await sleep(1000);
+      await chrome.tabs.update(tab.id, { url: writeUrl });
+      await waitForTabLoad(tab.id);
+    }
+
     await sleep(2500);
 
     await chrome.tabs.sendMessage(tab.id, { type: "DO_POSTING", payload: { posting } });
@@ -284,6 +264,7 @@ function validateStartPayload(payload) {
   if (!payload.posting || typeof payload.posting !== "object") return false;
   if (typeof payload.posting.title !== "string") return false;
   if (!Array.isArray(payload.posting.sections)) return false;
+  if (!payload.blogId || typeof payload.blogId !== "string") return false;
   return true;
 }
 

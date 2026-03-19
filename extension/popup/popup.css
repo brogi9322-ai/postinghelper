@@ -120,6 +120,11 @@ body {
   margin-bottom: 6px;
 }
 
+.input-hint {
+  font-weight: 400;
+  color: #94a3b8;
+}
+
 .input-field {
   width: 100%;
   padding: 10px 12px;
