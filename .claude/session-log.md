@@ -231,6 +231,15 @@
 
 ---
 
+### [25] "블로그에 올리기 누르면 죄송합니다. 유효하지 않은 요청입니다. 화면이 출력 돼."
+**작업**: PostWriteForm.naver blogId 누락 버그 수정
+- 원인: `https://blog.naver.com/PostWriteForm.naver` 접근 시 `blogId` 파라미터 없으면 Naver가 "유효하지 않은 요청입니다" 반환
+- 수정: `handleStartPosting()` 에서 먼저 `https://blog.naver.com` 홈으로 이동 → `chrome.scripting.executeScript`로 페이지 링크에서 blogId 추출 → `PostWriteForm.naver?blogId=<blogId>` 로 이동
+- typecheck + 14개 테스트 통과 → 커밋 + 푸시
+- **변경 파일**: `extension/background/service-worker.js`
+
+---
+
 ### [22] "Access to fetch ... blocked by CORS policy" / "vercel 계정 만들었어. 보안 최고로 신경써야돼"
 **작업**: CORS 수정 + 배포 준비 + 보안 지침 강화
 - CORS: `lib/cors.ts` withCors() + OPTIONS 핸들러 적용 (이미 [18]에서 완료)

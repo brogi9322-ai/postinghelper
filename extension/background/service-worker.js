@@ -168,20 +168,45 @@ async function handleStartPosting({ posting }, sendResponse) {
 
   isPosting = true;
   try {
-    const tab = await chrome.tabs.create({ url: "https://blog.naver.com/PostWriteForm.naver" });
-    await waitForTabLoad(tab.id);
+    // 1. blog.naver.com 홈에서 blogId 추출 (PostWriteForm은 blogId 필수)
+    await saveState({ status: "posting", progress: { percent: 3, text: "블로그 정보 확인 중..." } });
+    const homeTab = await chrome.tabs.create({ url: "https://blog.naver.com", active: true });
+    await waitForTabLoad(homeTab.id);
 
-    // 로그인 여부 확인
-    const currentTab = await chrome.tabs.get(tab.id);
-    if (currentTab.url?.includes("nid.naver.com")) {
+    // 로그인 확인
+    const homeTabInfo = await chrome.tabs.get(homeTab.id);
+    if (homeTabInfo.url?.includes("nid.naver.com")) {
       await saveState({ status: "posting", progress: { percent: 5, text: "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다." } });
-      await waitForTabUrl(tab.id, (url) => url.includes("blog.naver.com"), 180000);
+      await waitForTabUrl(homeTab.id, (url) => url.includes("blog.naver.com"), 180000);
       await sleep(1000);
-      await chrome.tabs.update(tab.id, { url: "https://blog.naver.com/PostWriteForm.naver" });
-      await waitForTabLoad(tab.id);
+      await chrome.tabs.update(homeTab.id, { url: "https://blog.naver.com" });
+      await waitForTabLoad(homeTab.id);
     }
 
+    await sleep(1500);
+
+    // 페이지 내 링크에서 blogId 추출
+    const scriptResult = await chrome.scripting.executeScript({
+      target: { tabId: homeTab.id },
+      func: () => {
+        for (const link of document.querySelectorAll("a[href]")) {
+          const m = link.href.match(/[?&]blogId=([^&]+)/);
+          if (m) return decodeURIComponent(m[1]);
+        }
+        return null;
+      },
+    });
+    const blogId = scriptResult?.[0]?.result || null;
+    chrome.tabs.remove(homeTab.id).catch(() => {});
+
+    // 2. 글쓰기 페이지로 이동 (blogId 있으면 파라미터 포함)
+    const writeUrl = blogId
+      ? `https://blog.naver.com/PostWriteForm.naver?blogId=${encodeURIComponent(blogId)}`
+      : "https://blog.naver.com/PostWriteForm.naver";
+
     await saveProgress(10, "블로그 에디터 로딩 중...");
+    const tab = await chrome.tabs.create({ url: writeUrl });
+    await waitForTabLoad(tab.id);
     await sleep(2500);
 
     await chrome.tabs.sendMessage(tab.id, { type: "DO_POSTING", payload: { posting } });

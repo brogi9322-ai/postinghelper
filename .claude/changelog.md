@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-03-19
+
+### 블로그 포스팅 "유효하지 않은 요청" 버그 수정
+- `extension/background/service-worker.js` — `handleStartPosting()` 수정
+  - 기존: `PostWriteForm.naver` 직접 접근 → blogId 없어 Naver 오류
+  - 수정: `blog.naver.com` 홈 먼저 이동 → `chrome.scripting.executeScript`로 페이지 내 링크에서 blogId 추출 → `PostWriteForm.naver?blogId=<blogId>` 이동
+- **변경 파일**: `extension/background/service-worker.js`
+
+---
+
 ## 2026-03-18
 
 ### 프로젝트 초기 세팅
