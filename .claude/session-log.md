@@ -231,6 +231,15 @@
 
 ---
 
+### [27] "여전히 버튼 있어" / "블로그에 올리기하니까 Cannot access contents of the page..."
+**원인**: `chrome.scripting.executeScript` 호출 시 "Cannot access contents of the page" 에러
+**작업**:
+- `service-worker.js` — blogId 추출 방식을 executeScript → 탭 URL 파싱으로 변경
+  (`blog.naver.com/<blogId>` URL 패턴에서 직접 추출, 권한 불필요)
+- **변경 파일**: `extension/background/service-worker.js`
+
+---
+
 ### [26] "익스텐션 사이트에서 해당 프로그램에 오류 버튼 있는데 이게 뭐야?" / CORS 에러
 **원인**: 에러 응답(400/500)에 CORS 헤더 누락 + Vercel 구 버전 배포
 **작업**:

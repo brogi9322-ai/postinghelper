@@ -185,18 +185,15 @@ async function handleStartPosting({ posting }, sendResponse) {
 
     await sleep(1500);
 
-    // 페이지 내 링크에서 blogId 추출
-    const scriptResult = await chrome.scripting.executeScript({
-      target: { tabId: homeTab.id },
-      func: () => {
-        for (const link of document.querySelectorAll("a[href]")) {
-          const m = link.href.match(/[?&]blogId=([^&]+)/);
-          if (m) return decodeURIComponent(m[1]);
-        }
-        return null;
-      },
-    });
-    const blogId = scriptResult?.[0]?.result || null;
+    // 탭 URL에서 blogId 추출 (executeScript 없이)
+    // blog.naver.com/<blogId> 형식으로 리다이렉트되는 경우 추출 가능
+    const finalTabInfo = await chrome.tabs.get(homeTab.id);
+    const finalUrl = finalTabInfo.url || "";
+    const urlMatch = finalUrl.match(/blog\.naver\.com\/([^/?#]+)/);
+    const RESERVED = ["nv", "api", "PostWrite", "PostList", "widget", "gongnote"];
+    const blogId = (urlMatch && urlMatch[1] && !RESERVED.includes(urlMatch[1]))
+      ? urlMatch[1]
+      : null;
     chrome.tabs.remove(homeTab.id).catch(() => {});
 
     // 2. 글쓰기 페이지로 이동 (blogId 있으면 파라미터 포함)

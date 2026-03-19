@@ -7,6 +7,12 @@
 
 ## 2026-03-19
 
+### executeScript 권한 에러 수정
+- `extension/background/service-worker.js` — blogId 추출 방식 변경
+  - 기존: `chrome.scripting.executeScript` → "Cannot access contents of the page" 에러 발생
+  - 수정: 탭 URL(`blog.naver.com/<blogId>` 패턴)에서 직접 blogId 추출 (executeScript 불필요)
+- **변경 파일**: `extension/background/service-worker.js`
+
 ### CORS 에러 수정 + Vercel 재배포
 - `app/api/shopping/route.ts` — 400/500 에러 응답에도 `withCors()` 적용
 - `app/api/place/route.ts` — 400/500 에러 응답에도 `withCors()` 적용
