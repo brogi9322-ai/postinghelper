@@ -7,6 +7,11 @@
 
 ## 2026-03-19
 
+### 메시지 채널 닫힘 에러 수정
+- `extension/content/naverblog.js` — `handlePosting()`에서 `sendResponse` 즉시 호출로 변경
+  (타이핑 중 채널 닫힘 방지, 이후 진행은 runtime.sendMessage로 전달)
+- **변경 파일**: `extension/content/naverblog.js`
+
 ### 포스팅 섹션 포맷 변경 — 이미지→글 교차 패턴
 - `extension/background/service-worker.js` — `formatRawPosting()` 전면 수정
   - 기존: 텍스트 뭉치 → 이미지 뭉치 순서

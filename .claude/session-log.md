@@ -231,6 +231,15 @@
 
 ---
 
+### [32] "A listener indicated an asynchronous response by returning true, but the message channel closed"
+**원인**: handlePosting()이 타이핑 완료까지 오래 걸리는데, 그 전에 메시지 채널이 닫힘
+**작업**:
+- `naverblog.js` — sendResponse를 즉시 호출하고 handlePosting은 비동기로 계속 실행
+  (진행 상황은 기존대로 runtime.sendMessage로 전달)
+- **변경 파일**: `extension/content/naverblog.js`
+
+---
+
 ### [31] "이미지1 글 2~3줄 이미지1 이런 형식으로 쭉 써서 업로드해줘"
 **작업**:
 - `service-worker.js` — `formatRawPosting()` 전면 수정

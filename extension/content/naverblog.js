@@ -6,14 +6,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type !== "DO_POSTING") return;
   if (!message.payload?.posting || typeof message.payload.posting !== "object") return;
 
-  handlePosting(message.payload.posting, sendResponse);
-  return true; // async
+  // 채널이 닫히기 전에 즉시 응답 — 이후 진행은 runtime.sendMessage로 전달
+  sendResponse({ success: true });
+  handlePosting(message.payload.posting);
 });
 
 // ============================================================
 // 메인 포스팅 흐름
 // ============================================================
-async function handlePosting(posting, sendResponse) {
+async function handlePosting(posting) {
   try {
     sendProgress(5, "에디터 초기화 중...");
 
@@ -66,13 +67,11 @@ async function handlePosting(posting, sendResponse) {
 
     sendProgress(100, "포스팅 완료!");
     chrome.runtime.sendMessage({ type: "POSTING_DONE", payload: {} });
-    sendResponse({ success: true });
   } catch (err) {
     chrome.runtime.sendMessage({
       type: "ERROR",
       payload: { message: String(err.message || "자동 포스팅 중 오류 발생") },
     });
-    sendResponse({ success: false, error: String(err.message) });
   }
 }
 
