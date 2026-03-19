@@ -168,7 +168,7 @@ async function handleStartPosting({ posting, blogId }, sendResponse) {
 
   isPosting = true;
   try {
-    const writeUrl = `https://blog.naver.com/PostWriteForm.naver?blogId=${encodeURIComponent(String(blogId))}`;
+    const writeUrl = `https://blog.naver.com/${encodeURIComponent(String(blogId))}?Redirect=Write&`;
 
     // 1. blog.naver.com으로 로그인 상태 먼저 확인
     //    (PostWriteForm은 비로그인 시 nid로 안 보내고 에러 페이지 표시)

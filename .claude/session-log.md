@@ -231,6 +231,13 @@
 
 ---
 
+### [30] "블로그 포스팅 url은 이거야: https://blog.naver.com/아이디?Redirect=Write&"
+**작업**:
+- `service-worker.js` — 글쓰기 URL을 `blog.naver.com/<id>?Redirect=Write&` 로 수정
+- **변경 파일**: `extension/background/service-worker.js`
+
+---
+
 ### [29] "여전히 유효하지 않은 요청 — 로그인 안 되어 있어서"
 **원인**: PostWriteForm.naver는 비로그인 시 nid.naver.com으로 리다이렉트 안 하고 에러 페이지 표시
 **작업**:

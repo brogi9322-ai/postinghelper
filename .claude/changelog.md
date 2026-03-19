@@ -7,6 +7,12 @@
 
 ## 2026-03-19
 
+### 블로그 글쓰기 URL 수정
+- `extension/background/service-worker.js` — 글쓰기 URL 변경
+  - 기존: `PostWriteForm.naver?blogId=<id>` (에러 발생)
+  - 수정: `blog.naver.com/<id>?Redirect=Write&` (실제 동작하는 URL)
+- **변경 파일**: `extension/background/service-worker.js`
+
 ### 블로그 포스팅 로그인 감지 복원
 - `extension/background/service-worker.js` — handleStartPosting()에 로그인 확인 단계 복원
   - PostWriteForm.naver는 비로그인 시 nid.naver.com으로 안 보내고 에러 페이지 표시
