@@ -7,6 +7,13 @@
 
 ## 2026-03-19
 
+### 포스팅 섹션 포맷 변경 — 이미지→글 교차 패턴
+- `extension/background/service-worker.js` — `formatRawPosting()` 전면 수정
+  - 기존: 텍스트 뭉치 → 이미지 뭉치 순서
+  - 수정: 이미지→글(2~3줄)→이미지→글 교차 배치
+  - 텍스트 블록: 소개/가격/상품설명(3줄씩)/리뷰/마무리 순으로 분리
+- **변경 파일**: `extension/background/service-worker.js`
+
 ### 블로그 글쓰기 URL 수정
 - `extension/background/service-worker.js` — 글쓰기 URL 변경
   - 기존: `PostWriteForm.naver?blogId=<id>` (에러 발생)

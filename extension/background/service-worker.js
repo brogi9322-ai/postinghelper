@@ -205,37 +205,58 @@ async function handleStartPosting({ posting, blogId }, sendResponse) {
 function formatRawPosting(data, pageType) {
   if (pageType === "shopping") {
     const images = Array.isArray(data.images) ? data.images : [];
+    const name = String(data.productName || "상품 포스팅");
     const sections = [];
 
-    sections.push({
-      type: "text",
-      content: [String(data.productName || ""), "", String(data.description || "").slice(0, 500)].join("\n"),
-    });
-    if (images[0]) sections.push({ type: "image", content: images[0] });
+    // 텍스트 블록 준비 (2~3줄 단위)
+    const textBlocks = [];
 
+    // 블록 1: 소개
+    textBlocks.push(`${name}\n안녕하세요! 오늘은 ${name}을(를) 소개합니다.`);
+
+    // 블록 2: 가격 정보
     const priceLines = [];
     if (data.price?.discounted) priceLines.push(`판매가: ${Number(data.price.discounted).toLocaleString()}원`);
     if (data.price?.original) priceLines.push(`정가: ${Number(data.price.original).toLocaleString()}원`);
     if (data.shipping) priceLines.push(`배송: ${String(data.shipping)}`);
-    if (data.seller) priceLines.push(`판매자: ${String(data.seller)}`);
-    if (priceLines.length) sections.push({ type: "text", content: priceLines.join("\n") });
+    if (priceLines.length) textBlocks.push(priceLines.join("\n"));
 
-    if (images[1]) sections.push({ type: "image", content: images[1] });
+    // 블록 3~: 상품 설명을 3줄씩 나눠서
+    const descLines = String(data.description || "")
+      .split(/\n+/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+      .slice(0, 18);
+    for (let i = 0; i < descLines.length; i += 3) {
+      textBlocks.push(descLines.slice(i, i + 3).join("\n"));
+    }
 
+    // 블록: 리뷰
     const highlights = Array.isArray(data.reviews?.highlights) ? data.reviews.highlights : [];
     if (highlights.length) {
-      sections.push({
-        type: "text",
-        content: [`평점: ${data.reviews.rating || "-"}점 (${data.reviews.count || 0}개 리뷰)`, "", highlights.slice(0, 5).map((h) => `• ${String(h)}`).join("\n")].join("\n"),
-      });
-    }
-    images.slice(2, 6).forEach((img) => sections.push({ type: "image", content: img }));
-    if (data.affiliateUrl) {
-      sections.push({ type: "text", content: `구매를 원하신다면 아래 링크를 확인해보세요!\n${String(data.affiliateUrl)}` });
+      textBlocks.push(
+        `평점 ${data.reviews.rating || "-"}점 (${data.reviews.count || 0}개 리뷰)\n` +
+        highlights.slice(0, 2).map((h) => `• ${String(h)}`).join("\n")
+      );
+      if (highlights.length > 2) {
+        textBlocks.push(highlights.slice(2, 5).map((h) => `• ${String(h)}`).join("\n"));
+      }
     }
 
-    const tags = String(data.productName || "").split(/\s+/).filter((t) => t.length > 1).slice(0, 8);
-    return { title: String(data.productName || "상품 포스팅"), sections, tags };
+    // 블록: 마무리
+    if (data.affiliateUrl) {
+      textBlocks.push(`구매를 원하신다면 아래 링크를 확인해보세요!\n${String(data.affiliateUrl)}`);
+    }
+
+    // 이미지 → 글(2~3줄) 교차 배치
+    const maxPairs = Math.max(images.length, textBlocks.length);
+    for (let i = 0; i < maxPairs; i++) {
+      if (images[i]) sections.push({ type: "image", content: images[i] });
+      if (textBlocks[i]) sections.push({ type: "text", content: textBlocks[i] });
+    }
+
+    const tags = name.split(/\s+/).filter((t) => t.length > 1).slice(0, 8);
+    return { title: name, sections, tags };
   }
   return { title: String(data.name || "포스팅"), sections: [{ type: "text", content: String(data.description || "") }], tags: [] };
 }

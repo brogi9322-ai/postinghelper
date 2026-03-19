@@ -231,6 +231,15 @@
 
 ---
 
+### [31] "이미지1 글 2~3줄 이미지1 이런 형식으로 쭉 써서 업로드해줘"
+**작업**:
+- `service-worker.js` — `formatRawPosting()` 전면 수정
+  - 이미지→글(2~3줄) 교차 배치로 변경
+  - 텍스트 블록: 소개 / 가격정보 / 상품설명(3줄씩) / 리뷰 / 마무리(제휴링크)
+- **변경 파일**: `extension/background/service-worker.js`
+
+---
+
 ### [30] "블로그 포스팅 url은 이거야: https://blog.naver.com/아이디?Redirect=Write&"
 **작업**:
 - `service-worker.js` — 글쓰기 URL을 `blog.naver.com/<id>?Redirect=Write&` 로 수정
