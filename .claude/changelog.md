@@ -7,6 +7,12 @@
 
 ## 2026-03-19
 
+### 블로그 포스팅 로그인 감지 복원
+- `extension/background/service-worker.js` — handleStartPosting()에 로그인 확인 단계 복원
+  - PostWriteForm.naver는 비로그인 시 nid.naver.com으로 안 보내고 에러 페이지 표시
+  - blog.naver.com 먼저 열어 로그인 확인 → nid.naver.com 리다이렉트 감지 → 로그인 대기 → 글쓰기 이동
+- **변경 파일**: `extension/background/service-worker.js`
+
 ### 블로그 ID 입력란 추가 + PostWriteForm blogId 수정
 - `extension/popup/popup.html` — 블로그 ID 입력란 추가 (한 번 입력하면 storage에 저장)
 - `extension/popup/popup.js` — blogId storage 불러오기/저장, START_POSTING 메시지에 blogId 포함

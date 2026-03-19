@@ -170,20 +170,24 @@ async function handleStartPosting({ posting, blogId }, sendResponse) {
   try {
     const writeUrl = `https://blog.naver.com/PostWriteForm.naver?blogId=${encodeURIComponent(String(blogId))}`;
 
+    // 1. blog.naver.com으로 로그인 상태 먼저 확인
+    //    (PostWriteForm은 비로그인 시 nid로 안 보내고 에러 페이지 표시)
+    await saveState({ status: "posting", progress: { percent: 5, text: "로그인 상태 확인 중..." } });
+    const checkTab = await chrome.tabs.create({ url: "https://blog.naver.com", active: true });
+    await waitForTabLoad(checkTab.id);
+
+    const checkTabInfo = await chrome.tabs.get(checkTab.id);
+    if (checkTabInfo.url?.includes("nid.naver.com")) {
+      await saveState({ status: "posting", progress: { percent: 8, text: "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다." } });
+      await waitForTabUrl(checkTab.id, (url) => url.includes("blog.naver.com"), 180000);
+      await sleep(1000);
+    }
+    chrome.tabs.remove(checkTab.id).catch(() => {});
+
+    // 2. 글쓰기 페이지로 이동
     await saveProgress(10, "블로그 에디터 로딩 중...");
     const tab = await chrome.tabs.create({ url: writeUrl });
     await waitForTabLoad(tab.id);
-
-    // 로그인 여부 확인
-    const currentTab = await chrome.tabs.get(tab.id);
-    if (currentTab.url?.includes("nid.naver.com")) {
-      await saveState({ status: "posting", progress: { percent: 5, text: "네이버 로그인이 필요합니다. 로그인 완료 후 자동으로 진행됩니다." } });
-      await waitForTabUrl(tab.id, (url) => url.includes("blog.naver.com"), 180000);
-      await sleep(1000);
-      await chrome.tabs.update(tab.id, { url: writeUrl });
-      await waitForTabLoad(tab.id);
-    }
-
     await sleep(2500);
 
     await chrome.tabs.sendMessage(tab.id, { type: "DO_POSTING", payload: { posting } });

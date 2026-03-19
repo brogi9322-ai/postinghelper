@@ -231,6 +231,15 @@
 
 ---
 
+### [29] "여전히 유효하지 않은 요청 — 로그인 안 되어 있어서"
+**원인**: PostWriteForm.naver는 비로그인 시 nid.naver.com으로 리다이렉트 안 하고 에러 페이지 표시
+**작업**:
+- `service-worker.js` — handleStartPosting()에 blog.naver.com 로그인 확인 단계 복원
+  (nid.naver.com 리다이렉트 감지 → 로그인 대기 → 글쓰기 이동)
+- **변경 파일**: `extension/background/service-worker.js`
+
+---
+
 ### [28] "접근하고자하는 블로그 아이디가 없습니다" 에러
 **원인**: blog.naver.com URL에서 blogId 추출 실패 → PostWriteForm.naver에 blogId 없이 접근
 **작업**:
