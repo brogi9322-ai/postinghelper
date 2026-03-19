@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
   const body: ShoppingRequest = await req.json();
 
   if (!body.data?.productName) {
-    return NextResponse.json({ error: "상품 데이터가 없습니다." }, { status: 400 });
+    return withCors(NextResponse.json({ error: "상품 데이터가 없습니다." }, { status: 400 }));
   }
 
   // affiliateUrl 형식 검증
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       const u = new URL(body.data.affiliateUrl);
       if (u.protocol !== "https:") throw new Error();
     } catch {
-      return NextResponse.json({ error: "유효하지 않은 제휴 링크입니다." }, { status: 400 });
+      return withCors(NextResponse.json({ error: "유효하지 않은 제휴 링크입니다." }, { status: 400 }));
     }
   }
 

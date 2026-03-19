@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const body: PlaceRequest = await req.json();
 
   if (!body.data?.name) {
-    return NextResponse.json({ error: "장소 데이터가 없습니다." }, { status: 400 });
+    return withCors(NextResponse.json({ error: "장소 데이터가 없습니다." }, { status: 400 }));
   }
 
   const { data } = body;
@@ -54,12 +54,12 @@ export async function POST(req: NextRequest) {
 
   const textBlock = message.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
-    return NextResponse.json({ error: "포스팅 생성 실패" }, { status: 500 });
+    return withCors(NextResponse.json({ error: "포스팅 생성 실패" }, { status: 500 }));
   }
 
   const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    return NextResponse.json({ error: "응답 파싱 실패" }, { status: 500 });
+    return withCors(NextResponse.json({ error: "응답 파싱 실패" }, { status: 500 }));
   }
 
   const parsed = JSON.parse(jsonMatch[0]);

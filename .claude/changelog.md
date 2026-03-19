@@ -7,6 +7,12 @@
 
 ## 2026-03-19
 
+### CORS 에러 수정 + Vercel 재배포
+- `app/api/shopping/route.ts` — 400/500 에러 응답에도 `withCors()` 적용
+- `app/api/place/route.ts` — 400/500 에러 응답에도 `withCors()` 적용
+- Vercel 프로덕션 재배포 완료: https://postinghelper.vercel.app
+- **변경 파일**: `app/api/shopping/route.ts`, `app/api/place/route.ts`
+
 ### 블로그 포스팅 "유효하지 않은 요청" 버그 수정
 - `extension/background/service-worker.js` — `handleStartPosting()` 수정
   - 기존: `PostWriteForm.naver` 직접 접근 → blogId 없어 Naver 오류

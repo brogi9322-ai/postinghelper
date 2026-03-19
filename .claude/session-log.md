@@ -231,6 +231,17 @@
 
 ---
 
+### [26] "익스텐션 사이트에서 해당 프로그램에 오류 버튼 있는데 이게 뭐야?" / CORS 에러
+**원인**: 에러 응답(400/500)에 CORS 헤더 누락 + Vercel 구 버전 배포
+**작업**:
+- `app/api/shopping/route.ts` — 모든 에러 응답에 `withCors()` 추가
+- `app/api/place/route.ts` — 모든 에러 응답에 `withCors()` 추가
+- Vercel 프로덕션 재배포 (`npx vercel --prod --yes`)
+- typecheck + 14개 테스트 통과 → 커밋 + 푸시
+- **변경 파일**: `app/api/shopping/route.ts`, `app/api/place/route.ts`
+
+---
+
 ### [25] "블로그에 올리기 누르면 죄송합니다. 유효하지 않은 요청입니다. 화면이 출력 돼."
 **작업**: PostWriteForm.naver blogId 누락 버그 수정
 - 원인: `https://blog.naver.com/PostWriteForm.naver` 접근 시 `blogId` 파라미터 없으면 Naver가 "유효하지 않은 요청입니다" 반환
