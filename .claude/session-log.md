@@ -231,6 +231,18 @@
 
 ---
 
+### [33] "글자 타이핑이 안되는데"
+**원인**: `document.execCommand`는 외부 document 기준 — 에디터가 iframe 안에 있으면 iframe의 document로 호출해야 함
+**작업**:
+- `naverblog.js` 전면 수정
+  - `waitForEditorDocument()`: `{doc, win}` 반환, 모든 iframe 순회로 변경
+  - `typeText()`: `editorDoc.execCommand` 사용
+  - `insertImage()`: `editorWin.DragEvent/ClipboardEvent` 사용
+  - `.se-content[contenteditable='true']` 선택자 추가
+- **변경 파일**: `extension/content/naverblog.js`
+
+---
+
 ### [32] "A listener indicated an asynchronous response by returning true, but the message channel closed"
 **원인**: handlePosting()이 타이핑 완료까지 오래 걸리는데, 그 전에 메시지 채널이 닫힘
 **작업**:

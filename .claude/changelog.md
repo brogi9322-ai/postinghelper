@@ -7,6 +7,16 @@
 
 ## 2026-03-19
 
+### 텍스트 타이핑 안되는 버그 수정 — iframe document 사용
+- `extension/content/naverblog.js` 전면 수정
+  - `waitForEditorDocument()`: `{doc, win}` 반환으로 변경 (iframe document + window 함께 반환)
+  - iframe 탐색을 name 고정에서 모든 iframe 순회 방식으로 변경
+  - `typeText()`: `document.execCommand` → `editorDoc.execCommand` (iframe 대응)
+  - `handlePosting()`: 단락 구분/오류 텍스트도 `editorDoc.execCommand` 사용
+  - `insertImage()`: `editorWin.DragEvent/ClipboardEvent`로 이벤트 생성 (iframe window 사용)
+  - `.se-content[contenteditable='true']` 선택자 추가
+- **변경 파일**: `extension/content/naverblog.js`
+
 ### 메시지 채널 닫힘 에러 수정
 - `extension/content/naverblog.js` — `handlePosting()`에서 `sendResponse` 즉시 호출로 변경
   (타이핑 중 채널 닫힘 방지, 이후 진행은 runtime.sendMessage로 전달)

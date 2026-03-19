@@ -18,8 +18,8 @@ async function handlePosting(posting) {
   try {
     sendProgress(5, "에디터 초기화 중...");
 
-    // 에디터 iframe 안 document 가져오기
-    const editorDoc = await waitForEditorDocument();
+    // 에디터 document + window 가져오기 (iframe 대응)
+    const { doc: editorDoc, win: editorWin } = await waitForEditorDocument();
 
     sendProgress(10, "제목 입력 중...");
     await setTitle(editorDoc, String(posting.title || "").slice(0, 100));
@@ -41,22 +41,20 @@ async function handlePosting(posting) {
 
       if (section.type === "text" && typeof section.content === "string") {
         sendProgress(percent, `텍스트 입력 중... (${i + 1}/${total})`);
-        await typeText(editorEl, section.content);
-        // 단락 구분
+        await typeText(editorEl, editorDoc, section.content);
         editorEl.focus();
-        document.execCommand("insertParagraph", false);
+        editorDoc.execCommand("insertParagraph", false);
         await sleep(200);
       } else if (section.type === "image" && typeof section.content === "string") {
         sendProgress(percent, `이미지 삽입 중... (${i + 1}/${total})`);
-        const ok = await insertImage(editorEl, section.content);
+        const ok = await insertImage(editorEl, editorDoc, editorWin, section.content);
         if (!ok) {
-          // 이미지 실패 시 대체 텍스트 삽입 후 계속 진행
           editorEl.focus();
-          document.execCommand("insertText", false, "[이미지 삽입 실패]");
+          editorDoc.execCommand("insertText", false, "[이미지 삽입 실패]");
         }
-        await sleep(1500); // 이미지 업로드 처리 대기
+        await sleep(1500);
         editorEl.focus();
-        document.execCommand("insertParagraph", false);
+        editorDoc.execCommand("insertParagraph", false);
         await sleep(300);
       }
     }
@@ -76,23 +74,27 @@ async function handlePosting(posting) {
 }
 
 // ============================================================
-// 에디터 document 가져오기 (mainFrame iframe 대응)
+// 에디터 document + window 가져오기 (iframe 대응)
 // ============================================================
 async function waitForEditorDocument(timeoutMs = 20000) {
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
-    // 1. mainFrame iframe 시도 (네이버 블로그 글쓰기 구조)
-    const iframe = document.querySelector('iframe[name="mainFrame"]');
-    if (iframe) {
-      const iDoc = iframe.contentDocument;
-      if (iDoc && iDoc.readyState === "complete" && getContentEditable(iDoc)) {
-        return iDoc;
-      }
+    // 1. iframe 탐색 (name="mainFrame" 또는 기타 iframe)
+    const iframes = document.querySelectorAll("iframe");
+    for (const iframe of iframes) {
+      try {
+        const iDoc = iframe.contentDocument;
+        if (iDoc && iDoc.readyState === "complete" && getContentEditable(iDoc)) {
+          return { doc: iDoc, win: iframe.contentWindow };
+        }
+      } catch { /* cross-origin iframe 무시 */ }
     }
 
-    // 2. 현재 document에 직접 에디터가 있는 경우 (SPA 구조)
-    if (getContentEditable(document)) return document;
+    // 2. 현재 document에 직접 에디터가 있는 경우
+    if (getContentEditable(document)) {
+      return { doc: document, win: window };
+    }
 
     await sleep(500);
   }
@@ -104,11 +106,11 @@ async function waitForEditorDocument(timeoutMs = 20000) {
 // contenteditable 에디터 영역 찾기
 // ============================================================
 function getContentEditable(doc) {
-  // 스마트에디터 ONE 선택자 우선순위 순
   const selectors = [
     ".se-main-container [contenteditable='true']",
     ".se-section [contenteditable='true']",
     ".se-component-content [contenteditable='true']",
+    ".se-content[contenteditable='true']",
     "[contenteditable='true']",
   ];
 
@@ -122,7 +124,7 @@ function getContentEditable(doc) {
 // ============================================================
 // 제목 입력
 // ============================================================
-async function setTitle(doc, title) {
+async function setTitle(editorDoc, title) {
   const selectors = [
     "input#subject",
     "input[placeholder*='제목']",
@@ -131,27 +133,26 @@ async function setTitle(doc, title) {
   ];
 
   let titleInput = null;
+  // iframe 안에서 먼저 시도
   for (const sel of selectors) {
-    titleInput = doc.querySelector(sel);
+    titleInput = editorDoc.querySelector(sel);
     if (titleInput) break;
   }
-
+  // 외부 document(top frame)에서도 시도
   if (!titleInput) {
-    // 외부 document(top frame)에서도 시도
     for (const sel of selectors) {
       titleInput = document.querySelector(sel);
       if (titleInput) break;
     }
   }
 
-  if (!titleInput) return; // 제목 입력란 없으면 skip (구조 변경 대비)
+  if (!titleInput) return;
 
   titleInput.focus();
   titleInput.value = "";
   titleInput.dispatchEvent(new Event("input", { bubbles: true }));
   await sleep(100);
 
-  // 한 글자씩 입력 (더 자연스럽게)
   for (const char of title) {
     titleInput.value += char;
     titleInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -163,51 +164,51 @@ async function setTitle(doc, title) {
 }
 
 // ============================================================
-// 텍스트 한 글자씩 타이핑
+// 텍스트 한 글자씩 타이핑 — editorDoc.execCommand 사용
 // ============================================================
-async function typeText(editorEl, text) {
+async function typeText(editorEl, editorDoc, text) {
   editorEl.focus();
-  // 청크 단위로 입력 (너무 느리지 않게, 문자 단위 딜레이)
   for (const char of text) {
-    document.execCommand("insertText", false, char);
-    await sleep(20 + Math.random() * 40); // 20~60ms 랜덤 딜레이
+    editorDoc.execCommand("insertText", false, char);
+    await sleep(20 + Math.random() * 40);
   }
 }
 
 // ============================================================
-// 이미지 삽입 (DataTransfer drop 방식)
+// 이미지 삽입 — iframe의 window/DragEvent 사용
 // ============================================================
-async function insertImage(editorEl, imageUrl) {
+async function insertImage(editorEl, editorDoc, editorWin, imageUrl) {
   try {
-    // 이미지 fetch → Blob → File
     const res = await fetch(imageUrl, { credentials: "omit" });
     if (!res.ok) return false;
 
     const blob = await res.blob();
 
-    // MIME 타입 검증 (허용: jpeg, png, webp, gif)
     const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!ALLOWED_MIME.includes(blob.type)) return false;
 
     const ext = blob.type.split("/")[1] || "jpg";
     const file = new File([blob], `image.${ext}`, { type: blob.type });
 
-    // DataTransfer 생성 후 drop 이벤트로 에디터에 삽입
     const dt = new DataTransfer();
     dt.items.add(file);
 
     editorEl.focus();
 
-    const dropEvent = new DragEvent("drop", {
+    // iframe의 window로 이벤트 생성 (외부 window면 에디터가 인식 못함)
+    const DragEventCtor = editorWin.DragEvent || DragEvent;
+    const ClipboardEventCtor = editorWin.ClipboardEvent || ClipboardEvent;
+
+    const dropEvent = new DragEventCtor("drop", {
       bubbles: true,
       cancelable: true,
       dataTransfer: dt,
     });
     editorEl.dispatchEvent(dropEvent);
 
-    // paste 방식도 함께 시도 (에디터에 따라 다르게 동작)
     await sleep(300);
-    const pasteEvent = new ClipboardEvent("paste", {
+
+    const pasteEvent = new ClipboardEventCtor("paste", {
       bubbles: true,
       cancelable: true,
       clipboardData: dt,
@@ -223,7 +224,7 @@ async function insertImage(editorEl, imageUrl) {
 // ============================================================
 // 태그 입력
 // ============================================================
-async function setTags(doc, tags) {
+async function setTags(editorDoc, tags) {
   if (!tags.length) return;
 
   const selectors = [
@@ -235,7 +236,7 @@ async function setTags(doc, tags) {
 
   let tagInput = null;
   for (const sel of selectors) {
-    tagInput = doc.querySelector(sel) || document.querySelector(sel);
+    tagInput = editorDoc.querySelector(sel) || document.querySelector(sel);
     if (tagInput) break;
   }
 
@@ -251,7 +252,6 @@ async function setTags(doc, tags) {
       await sleep(30 + Math.random() * 40);
     }
 
-    // 쉼표 또는 Enter로 태그 확정
     tagInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
     tagInput.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", keyCode: 13, bubbles: true }));
     await sleep(200);
