@@ -45,11 +45,11 @@ async function handlePosting(posting) {
 
       } else if (section.type === "image" && typeof section.content === "string") {
         sendProgress(percent, `이미지 삽입 중... (${i + 1}/${total})`);
-        const ok = await insertImageViaClipboard(editorDoc, editorWin, section.content);
+        const ok = await insertImageViaFileDialog(editorDoc, section.content);
         if (!ok) {
-          await cdpInsertText("[이미지]");
+          await cdpInsertText("[이미지 삽입 실패]");
         }
-        await sleep(1500);
+        await sleep(1000);
         await cdpPressEnter();
         await sleep(300);
       }
@@ -145,42 +145,33 @@ async function setTitle(editorDoc, editorWin, title) {
 }
 
 // ============================================================
-// 이미지 삽입 — 클립보드 + Ctrl+V (Smart Editor ONE이 자체 처리)
+// 이미지 삽입 — PC에 저장 후 SE ONE 파일 업로드
 // ============================================================
-async function insertImageViaClipboard(editorDoc, editorWin, imageUrl) {
+async function insertImageViaFileDialog(editorDoc, imageUrl) {
   // URL 유효성 검사
-  if (!imageUrl) { sendProgress(0, "이미지 URL 없음, 건너뜀"); return false; }
+  if (!imageUrl) { sendProgress(0, "이미지 URL 없음"); return false; }
   try { const u = new URL(imageUrl); if (u.protocol !== "https:") return false; } catch { return false; }
 
   try {
     sendProgress(0, "이미지 다운로드 중...");
-    const res = await fetch(imageUrl, { credentials: "omit" });
-    if (!res.ok) { sendProgress(0, `이미지 다운로드 실패 (${res.status})`); return false; }
+    // 1. 이미지 PC에 저장 (서비스 워커가 chrome.downloads로 처리)
+    const prepRes = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "PREPARE_IMAGE_INSERT", payload: { url: imageUrl } }, resolve);
+    });
+    if (!prepRes?.success) { sendProgress(0, "이미지 다운로드 실패"); return false; }
 
-    const blob = await res.blob();
-    const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!ALLOWED_MIME.includes(blob.type)) {
-      sendProgress(0, `지원하지 않는 형식: ${blob.type}`);
-      return false;
-    }
+    sendProgress(0, "이미지 버튼 클릭 중...");
+    // 2. SE ONE 툴바의 이미지 버튼 좌표 계산
+    const coords = findImageButtonCoords(editorDoc);
+    if (!coords) { sendProgress(0, "이미지 버튼을 찾을 수 없음"); return false; }
 
-    sendProgress(0, "이미지 클립보드 저장 중...");
-    const pngBlob = await convertToPng(blob);
+    // 3. CDP로 신뢰된 클릭 → 파일 선택창 열림 → 서비스 워커가 인터셉트 후 파일 설정
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "CDP_CLICK_AT", payload: coords }, resolve);
+    });
 
-    // 클립보드 쓰기 전 메인 프레임에 포커스 (iframe 포커스 상태에서 clipboard.write 거부 방지)
-    document.body.focus();
-    await sleep(100);
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
-    await sleep(300);
-
-    sendProgress(0, "이미지 붙여넣기 중...");
-    // 본문에 포커스 후 Ctrl+V
-    const bodyNode = getBodyNode(editorDoc);
-    if (bodyNode) focusWithSelection(bodyNode, editorDoc, editorWin);
-    await sleep(300);
-
-    await cdpPressCtrlV();
-    await sleep(1000); // SE ONE이 이미지 처리할 시간
+    sendProgress(0, "이미지 업로드 대기 중...");
+    await sleep(5000); // SE ONE 업로드 완료 대기
     return true;
   } catch (e) {
     sendProgress(0, `이미지 삽입 오류: ${e.message}`);
@@ -188,23 +179,52 @@ async function insertImageViaClipboard(editorDoc, editorWin, imageUrl) {
   }
 }
 
-async function convertToPng(blob) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(blob);
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      canvas.getContext("2d").drawImage(img, 0, 0);
-      canvas.toBlob((pngBlob) => {
-        URL.revokeObjectURL(url);
-        resolve(pngBlob || blob);
-      }, "image/png");
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
-    img.src = url;
-  });
+function findImageButtonCoords(editorDoc) {
+  // SE ONE 툴바 이미지 버튼 탐색
+  const selectors = [
+    "button[title*='이미지']",
+    "button[aria-label*='이미지']",
+    "button[data-type*='image']",
+    "button[title*='사진']",
+    "button[aria-label*='사진']",
+    "button[title*='Image']",
+    "button[aria-label*='Image']",
+  ];
+
+  let btn = null;
+  // iframe 내부(에디터) 탐색 우선
+  for (const sel of selectors) {
+    btn = editorDoc.querySelector(sel);
+    if (btn) break;
+  }
+  // 메인 프레임 탐색
+  if (!btn) {
+    for (const sel of selectors) {
+      btn = document.querySelector(sel);
+      if (btn) break;
+    }
+  }
+  if (!btn) return null;
+
+  // 절대 좌표 계산 (iframe 내부 요소면 iframe offset 포함)
+  const btnRect = btn.getBoundingClientRect();
+  let x = btnRect.left + btnRect.width / 2;
+  let y = btnRect.top + btnRect.height / 2;
+
+  if (btn.ownerDocument !== document) {
+    for (const iframe of document.querySelectorAll("iframe")) {
+      try {
+        if (iframe.contentDocument === btn.ownerDocument) {
+          const iframeRect = iframe.getBoundingClientRect();
+          x = iframeRect.left + btnRect.left + btnRect.width / 2;
+          y = iframeRect.top + btnRect.top + btnRect.height / 2;
+          break;
+        }
+      } catch {}
+    }
+  }
+
+  return { x: Math.round(x), y: Math.round(y) };
 }
 
 // ============================================================
@@ -273,10 +293,6 @@ function cdpPressKey(key, code, keyCode, modifiers = 0) {
 
 function cdpPressEnter() {
   return cdpPressKey("Enter", "Enter", 13, 0);
-}
-
-function cdpPressCtrlV() {
-  return cdpPressKey("v", "KeyV", 86, 2); // modifiers: 2 = Ctrl
 }
 
 // ============================================================

@@ -365,6 +365,25 @@
 
 ---
 
+### [36] "이미지 삽입 방식을 클립보드+Ctrl+V에서 PC 파일 저장 후 SE ONE 파일 업로드로 교체"
+**작업**: 이미지 삽입 방식 전면 교체
+- `extension/manifest.json`: `"downloads"` 권한 추가
+- `extension/background/service-worker.js`:
+  - `pendingImagePath`, `pendingDownloadIds` 전역 변수 추가
+  - `chrome.debugger.onEvent` 리스너: `Page.fileChooserOpened` 인터셉트 → `DOM.setFileInputFiles`로 파일 자동 설정
+  - ALLOWED_TYPES에 `PREPARE_IMAGE_INSERT`, `CDP_CLICK_AT` 추가
+  - `PREPARE_IMAGE_INSERT` 핸들러: `downloadImageToDisk()`로 이미지 PC 저장
+  - `CDP_CLICK_AT` 핸들러: CDP 마우스 클릭 이벤트
+  - `attachDebugger()`: `Page.setInterceptFileChooserDialog` 활성화 추가
+  - `downloadImageToDisk()`, `cdpClickAt()` 함수 추가
+- `extension/content/naverblog.js`:
+  - 이미지 섹션: `insertImageViaClipboard()` → `insertImageViaFileDialog()` 교체
+  - `insertImageViaFileDialog()`, `findImageButtonCoords()` 추가
+  - `insertImageViaClipboard()`, `convertToPng()`, `cdpPressCtrlV()` 제거
+- typecheck ✅ 테스트 14개 ✅
+
+---
+
 ### [23] "블로그 포스팅 완료가 떴지만 화면에는 아무 글자도 적히지 않았어" + 진단 결과
 **작업**: Naver Smart Editor ONE의 isTrusted 제약 발견 → chrome.debugger CDP 방식으로 전환
 

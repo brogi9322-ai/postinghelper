@@ -10,7 +10,8 @@
     "storage",
     "notifications",
     "debugger",
-    "clipboardWrite"
+    "clipboardWrite",
+    "downloads"
   ],
 
   "host_permissions": [

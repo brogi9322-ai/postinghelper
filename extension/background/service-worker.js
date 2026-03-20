@@ -7,11 +7,27 @@ const SHOPPING_DOMAINS = ["smartstore.naver.com", "brand.naver.com", "brandconne
 let isGenerating = false;
 let isPosting = false;
 let debuggerTabId = null;
+let pendingImagePath = null;
+const pendingDownloadIds = [];
+
+// 파일 선택창 인터셉트 — SE ONE 이미지 업로드용
+chrome.debugger.onEvent.addListener((source, method, params) => {
+  if (source.tabId !== debuggerTabId) return;
+  if (method !== "Page.fileChooserOpened") return;
+  if (!pendingImagePath) return;
+
+  const path = pendingImagePath;
+  pendingImagePath = null;
+  chrome.debugger.sendCommand({ tabId: source.tabId }, "DOM.setFileInputFiles", {
+    files: [path],
+    backendNodeId: params.backendNodeId,
+  }).catch(() => {});
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
 
-  const ALLOWED_TYPES = ["GENERATE_FROM_URL", "START_POSTING", "POSTING_PROGRESS", "POSTING_DONE", "ERROR", "CDP_INSERT_TEXT", "CDP_PRESS_KEY"];
+  const ALLOWED_TYPES = ["GENERATE_FROM_URL", "START_POSTING", "POSTING_PROGRESS", "POSTING_DONE", "ERROR", "CDP_INSERT_TEXT", "CDP_PRESS_KEY", "PREPARE_IMAGE_INSERT", "CDP_CLICK_AT"];
   if (!ALLOWED_TYPES.includes(message.type)) return;
 
   // naverblog.js → 팝업 포워딩 + storage 업데이트
@@ -48,6 +64,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!tabId) { sendResponse({ success: false }); return; }
     const { key, code, keyCode, modifiers = 0 } = message.payload || {};
     cdpPressKey(tabId, key, code, keyCode, modifiers)
+      .then(() => sendResponse({ success: true }))
+      .catch(() => sendResponse({ success: false }));
+    return true;
+  }
+
+  if (message.type === "PREPARE_IMAGE_INSERT") {
+    const tabId = sender.tab?.id;
+    const url = String(message.payload?.url || "");
+    if (!url || !tabId) { sendResponse({ success: false }); return; }
+    downloadImageToDisk(url)
+      .then((path) => { pendingImagePath = path; sendResponse({ success: true }); })
+      .catch(() => sendResponse({ success: false }));
+    return true;
+  }
+
+  if (message.type === "CDP_CLICK_AT") {
+    const tabId = sender.tab?.id;
+    if (!tabId) { sendResponse({ success: false }); return; }
+    const { x, y } = message.payload || {};
+    cdpClickAt(tabId, Number(x), Number(y))
       .then(() => sendResponse({ success: true }))
       .catch(() => sendResponse({ success: false }));
     return true;
@@ -346,9 +382,10 @@ async function attachDebugger(tabId) {
     await chrome.debugger.attach({ tabId }, "1.3");
     debuggerTabId = tabId;
   } catch {
-    // DevTools가 이미 연결되어있어도 계속 진행
     debuggerTabId = tabId;
   }
+  // 파일 선택창 인터셉트 활성화 (이미지 업로드용)
+  await chrome.debugger.sendCommand({ tabId }, "Page.setInterceptFileChooserDialog", { enabled: true }).catch(() => {});
 }
 
 function detachDebugger() {
@@ -376,6 +413,49 @@ async function cdpPressKey(tabId, key, code, keyCode, modifiers = 0) {
     nativeVirtualKeyCode: Number(keyCode),
     modifiers: Number(modifiers),
   });
+}
+
+async function downloadImageToDisk(url) {
+  const ext = url.includes(".webp") ? "webp" : "jpg";
+  const filename = `posting_helper/img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("다운로드 타임아웃")), 30000);
+
+    chrome.downloads.download(
+      { url, filename, saveAs: false, conflictAction: "uniquify" },
+      (downloadId) => {
+        if (chrome.runtime.lastError) {
+          clearTimeout(timeout);
+          return reject(new Error(chrome.runtime.lastError.message));
+        }
+        pendingDownloadIds.push(downloadId);
+
+        function listener(delta) {
+          if (delta.id !== downloadId) return;
+          if (delta.state?.current === "complete") {
+            clearTimeout(timeout);
+            chrome.downloads.onChanged.removeListener(listener);
+            chrome.downloads.search({ id: downloadId }, ([item]) => {
+              item?.filename ? resolve(item.filename) : reject(new Error("파일 경로 없음"));
+            });
+          } else if (delta.state?.current === "interrupted") {
+            clearTimeout(timeout);
+            chrome.downloads.onChanged.removeListener(listener);
+            reject(new Error("다운로드 중단"));
+          }
+        }
+        chrome.downloads.onChanged.addListener(listener);
+      }
+    );
+  });
+}
+
+async function cdpClickAt(tabId, x, y) {
+  const common = { x, y, button: "left", clickCount: 1, modifiers: 0 };
+  await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mousePressed", ...common });
+  await sleep(50);
+  await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mouseReleased", ...common });
 }
 
 function waitForTabLoad(tabId) {

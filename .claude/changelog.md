@@ -7,6 +7,28 @@
 
 ## 2026-03-21
 
+### 이미지 삽입 방식 교체 — 클립보드+Ctrl+V → PC 파일 저장+SE ONE 파일 업로드
+- `extension/manifest.json`
+  - permissions에 `"downloads"` 추가
+- `extension/background/service-worker.js`
+  - `pendingImagePath`, `pendingDownloadIds` 전역 변수 추가
+  - `chrome.debugger.onEvent` — `Page.fileChooserOpened` 인터셉트: 파일 선택창 열리면 저장된 경로로 파일 자동 설정
+  - ALLOWED_TYPES에 `PREPARE_IMAGE_INSERT`, `CDP_CLICK_AT` 추가
+  - `PREPARE_IMAGE_INSERT` 핸들러: `downloadImageToDisk()`로 이미지 PC 저장 후 경로 보관
+  - `CDP_CLICK_AT` 핸들러: CDP로 신뢰된 마우스 클릭 이벤트 발생
+  - `attachDebugger()`: `Page.setInterceptFileChooserDialog` 활성화 추가
+  - `downloadImageToDisk()` 함수 추가 (chrome.downloads API, 30초 타임아웃)
+  - `cdpClickAt()` 함수 추가 (mousePressed + mouseReleased)
+- `extension/content/naverblog.js`
+  - 이미지 섹션 처리: `insertImageViaClipboard()` → `insertImageViaFileDialog()` 교체
+  - `insertImageViaFileDialog()`: PREPARE_IMAGE_INSERT → CDP_CLICK_AT 순서로 파일 업로드
+  - `findImageButtonCoords()`: SE ONE 툴바 이미지 버튼 탐색 + iframe offset 포함 절대 좌표 계산
+  - `insertImageViaClipboard()`, `convertToPng()` 제거
+  - `cdpPressCtrlV()` 제거 (더 이상 불필요)
+- **변경 파일**: `extension/manifest.json`, `extension/background/service-worker.js`, `extension/content/naverblog.js`
+
+---
+
 ### 네이버 블로그 에디터 입력 — chrome.debugger CDP 방식으로 전면 전환
 - `extension/content/naverblog.js` 전면 재작성
   - `cdpInsertText()`: SW에 `CDP_INSERT_TEXT` 메시지 → `Input.insertText` CDP 명령 (trusted event)
