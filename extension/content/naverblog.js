@@ -232,9 +232,14 @@ async function setTags(editorDoc, tags) {
 // ============================================================
 
 // 한 글자씩 100ms 간격으로 타이핑 (약 10글자/초)
+// \n은 Enter 키로 처리하여 실제 단락 나눔
 async function typeCharByChar(text) {
   for (const char of text) {
-    await cdpInsertText(char);
+    if (char === "\n") {
+      await cdpPressEnter();
+    } else {
+      await cdpInsertText(char);
+    }
     await sleep(100);
   }
 }

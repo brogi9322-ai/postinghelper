@@ -54,7 +54,12 @@ async function collectShoppingData(affiliateUrl) {
   // 리뷰 탭 클릭 후 수집
   sendProgress(42, "리뷰 수집 중...");
   await clickReviewTab();
-  await sleep(1500);
+  // 리뷰 탭 콘텐츠 로드 대기 (최대 5초)
+  await waitForElement(
+    "[class*='reviewContent'], [class*='review_list'], [class*='reviewList'], [class*='ReviewList'], ul[class*='review']",
+    5000
+  );
+  await sleep(500);
   const reviews = await collectReviews();
 
   // 상세 페이지 이미지 수집 (스크롤 후 iframe 포함)
@@ -258,9 +263,9 @@ async function collectDetailImages() {
 // 리뷰 수집
 // ============================================================
 async function clickReviewTab() {
-  // ":contains()" 는 표준 CSS 미지원 — 텍스트 기반으로만 탐색
+  // <a> 태그 제외 — 클릭 시 페이지 이동 가능성 있음, button만 허용
   const candidates = document.querySelectorAll(
-    "[class*='reviewTab'], [class*='tab'] button, [class*='tab'] a, li[class*='tab'], button, a"
+    "[class*='reviewTab'] button, [class*='tab'] button, li[class*='tab'] button, button[class*='tab'], button"
   );
   for (const el of candidates) {
     const text = el.textContent?.trim() || "";
@@ -279,56 +284,117 @@ async function collectReviews() {
   };
 
   // 평점
-  const ratingEl = document.querySelector(
-    "[class*='reviewScore'] strong, [class*='ratingScore'], [class*='averageScore']"
-  );
-  if (ratingEl) {
-    reviewData.rating = parseFloat(ratingEl.textContent) || 0;
+  const ratingSelectors = [
+    "[class*='reviewScore'] strong",
+    "[class*='ratingScore']",
+    "[class*='averageScore']",
+    "[class*='starScore']",
+    "[class*='totalScore']",
+    "[class*='review'][class*='score']",
+    "[class*='rating'][class*='average']",
+  ];
+  for (const sel of ratingSelectors) {
+    const el = document.querySelector(sel);
+    if (el?.textContent) {
+      const match = el.textContent.match(/[\d.]+/);
+      if (match && parseFloat(match[0]) > 0) {
+        reviewData.rating = parseFloat(match[0]);
+        break;
+      }
+    }
   }
 
   // 리뷰 수
-  const countEl = document.querySelector(
-    "[class*='reviewCount'], [class*='totalCount'], [class*='_1fsC93FWsJ']"
-  );
-  if (countEl) {
-    const match = countEl.textContent.replace(/,/g, "").match(/\d+/);
-    if (match) reviewData.count = parseInt(match[0]);
+  const countSelectors = [
+    "[class*='reviewCount']",
+    "[class*='totalCount']",
+    "[class*='review'][class*='count']",
+    "[class*='total'][class*='review']",
+    "[class*='_1fsC93FWsJ']",
+  ];
+  for (const sel of countSelectors) {
+    const el = document.querySelector(sel);
+    if (el?.textContent) {
+      const match = el.textContent.replace(/,/g, "").match(/\d+/);
+      if (match) {
+        reviewData.count = parseInt(match[0]);
+        break;
+      }
+    }
   }
 
-  // 최신 리뷰 텍스트 수집 (최대 3페이지)
-  const highlights = [];
-  for (let page = 0; page < 3; page++) {
-    const reviewTexts = collectReviewTextsOnPage();
-    highlights.push(...reviewTexts);
+  // 리뷰 영역 탐색
+  const reviewAreaSelectors = [
+    "[class*='reviewContent']",
+    "[class*='review_list']",
+    "[class*='reviewList']",
+    "[class*='ReviewList']",
+    "[class*='review-list']",
+    "ul[class*='review']",
+    "[class*='review'][class*='wrap']",
+    "[class*='review'][class*='area']",
+    "[class*='review'][class*='container']",
+  ];
 
-    // 다음 페이지
-    const nextBtn = document.querySelector(
-      "[class*='pagination'] button[class*='next']:not(:disabled), [class*='next_btn']:not([disabled])"
-    );
-    if (!nextBtn) break;
-    nextBtn.click();
-    await sleep(1000);
+  let reviewArea = null;
+  for (const sel of reviewAreaSelectors) {
+    reviewArea = document.querySelector(sel);
+    if (reviewArea) break;
+  }
+
+  const highlights = [];
+  if (reviewArea) {
+    for (let page = 0; page < 3; page++) {
+      const reviewTexts = collectReviewTextsOnPage(reviewArea);
+      highlights.push(...reviewTexts);
+
+      const nextBtn = reviewArea.querySelector(
+        "button[class*='next']:not(:disabled), button[class*='Next']:not(:disabled)"
+      ) || document.querySelector(
+        "[class*='reviewPagination'] button[class*='next']:not(:disabled), " +
+        "[class*='pagination'] button[class*='next']:not(:disabled)"
+      );
+      if (!nextBtn) break;
+      nextBtn.click();
+      await sleep(1000);
+    }
   }
 
   reviewData.highlights = [...new Set(highlights)].slice(0, 10);
   return reviewData;
 }
 
-function collectReviewTextsOnPage() {
+function collectReviewTextsOnPage(reviewArea) {
+  const root = reviewArea || document;
+
   const selectors = [
+    "[class*='review_content'] p",
     "[class*='reviewContent'] p",
+    "[class*='review'] [class*='text'] p",
+    "[class*='review'] [class*='content'] p",
+    "[class*='reviewText']",
     "[class*='review_text']",
-    "[class*='_3z4jfB0L_J']",
-    "[class*='review_content']",
+    "li[class*='review'] p",
+    "[class*='reviewItem'] p",
+    "[class*='review'] p",
   ];
 
   const texts = [];
   for (const sel of selectors) {
-    document.querySelectorAll(sel).forEach((el) => {
+    root.querySelectorAll(sel).forEach((el) => {
       const text = el.textContent?.trim();
-      if (text && text.length > 10) texts.push(text);
+      if (text && text.length > 10 && text.length < 1000) texts.push(text);
     });
     if (texts.length > 0) break;
+  }
+
+  // 최후 수단: li 내부에서 충분히 긴 텍스트
+  if (texts.length === 0) {
+    root.querySelectorAll("li").forEach((li) => {
+      const el = li.querySelector("p, span");
+      const text = el?.textContent?.trim();
+      if (text && text.length > 10 && text.length < 1000) texts.push(text);
+    });
   }
 
   return texts;
@@ -368,7 +434,7 @@ function normalizeImageUrl(url) {
 }
 
 function waitForElement(selector, timeout = 5000) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const el = document.querySelector(selector);
     if (el) return resolve(el);
 
