@@ -38,8 +38,7 @@ async function handlePosting(posting) {
 
       if (section.type === "text" && typeof section.content === "string") {
         sendProgress(percent, `텍스트 입력 중... (${i + 1}/${total})`);
-        // Input.insertText — 신뢰된 이벤트로 Smart Editor ONE이 처리함
-        await cdpInsertText(section.content);
+        await typeCharByChar(section.content);
         await sleep(100);
         await cdpPressEnter();
         await sleep(200);
@@ -123,11 +122,25 @@ function focusWithSelection(el, doc, win) {
 // 제목 입력
 // ============================================================
 async function setTitle(editorDoc, editorWin, title) {
+  // contenteditable 전체 div를 포커스하고 커서를 제목 __se-node 첫 위치로 이동
   const titleNode = editorDoc.querySelector(".se-section-documentTitle .__se-node");
-  if (!titleNode) return;
-  focusWithSelection(titleNode, editorDoc, editorWin);
+  const ce = editorDoc.querySelector("[contenteditable='true']");
+  const focusTarget = ce || titleNode;
+  if (!focusTarget) return;
+
+  focusTarget.focus();
+  try {
+    const sel = editorWin.getSelection();
+    const range = editorDoc.createRange();
+    const anchor = titleNode || focusTarget;
+    range.setStart(anchor, 0);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch { /* ignore */ }
+
   await sleep(150);
-  await cdpInsertText(title);
+  await typeCharByChar(title);
   await sleep(200);
 }
 
@@ -217,6 +230,15 @@ async function setTags(editorDoc, tags) {
 // ============================================================
 // CDP 헬퍼 — 서비스 워커에 요청해서 신뢰된 이벤트 발생
 // ============================================================
+
+// 한 글자씩 100ms 간격으로 타이핑 (약 10글자/초)
+async function typeCharByChar(text) {
+  for (const char of text) {
+    await cdpInsertText(char);
+    await sleep(100);
+  }
+}
+
 function cdpInsertText(text) {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: "CDP_INSERT_TEXT", payload: { text } }, resolve);
