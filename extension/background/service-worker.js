@@ -6,11 +6,12 @@ const API_BASE = "https://postinghelper.vercel.app";
 const SHOPPING_DOMAINS = ["smartstore.naver.com", "brand.naver.com", "brandconnect.naver.com"];
 let isGenerating = false;
 let isPosting = false;
+let debuggerTabId = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
 
-  const ALLOWED_TYPES = ["GENERATE_FROM_URL", "START_POSTING", "POSTING_PROGRESS", "POSTING_DONE", "ERROR"];
+  const ALLOWED_TYPES = ["GENERATE_FROM_URL", "START_POSTING", "POSTING_PROGRESS", "POSTING_DONE", "ERROR", "CDP_INSERT_TEXT", "CDP_PRESS_KEY"];
   if (!ALLOWED_TYPES.includes(message.type)) return;
 
   // naverblog.js → 팝업 포워딩 + storage 업데이트
@@ -21,14 +22,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === "POSTING_DONE") {
     isPosting = false;
+    detachDebugger();
     saveState({ status: "done", progress: { percent: 100, text: "블로그 포스팅 완료!" } });
     return;
   }
   if (message.type === "ERROR") {
     isPosting = false;
     isGenerating = false;
+    detachDebugger();
     saveState({ status: "error", error: String(message.payload?.message || "오류 발생") });
     return;
+  }
+
+  if (message.type === "CDP_INSERT_TEXT") {
+    const tabId = sender.tab?.id;
+    if (!tabId) { sendResponse({ success: false }); return; }
+    chrome.debugger.sendCommand({ tabId }, "Input.insertText", { text: String(message.payload?.text || "") })
+      .then(() => sendResponse({ success: true }))
+      .catch(() => sendResponse({ success: false }));
+    return true;
+  }
+
+  if (message.type === "CDP_PRESS_KEY") {
+    const tabId = sender.tab?.id;
+    if (!tabId) { sendResponse({ success: false }); return; }
+    const { key, code, keyCode, modifiers = 0 } = message.payload || {};
+    cdpPressKey(tabId, key, code, keyCode, modifiers)
+      .then(() => sendResponse({ success: true }))
+      .catch(() => sendResponse({ success: false }));
+    return true;
   }
 
   if (message.type === "GENERATE_FROM_URL") {
@@ -46,7 +68,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
     }
     handleStartPosting(message.payload, sendResponse);
-    return true;
   }
 });
 
@@ -167,6 +188,8 @@ async function handleStartPosting({ posting, blogId }, sendResponse) {
   }
 
   isPosting = true;
+  sendResponse({ success: true }); // 채널이 닫히기 전에 즉시 응답
+
   try {
     const writeUrl = `https://blog.naver.com/${encodeURIComponent(String(blogId))}?Redirect=Write&`;
 
@@ -190,12 +213,13 @@ async function handleStartPosting({ posting, blogId }, sendResponse) {
     await waitForTabLoad(tab.id);
     await sleep(2500);
 
-    await chrome.tabs.sendMessage(tab.id, { type: "DO_POSTING", payload: { posting } });
-    sendResponse({ success: true });
+    // 3. 디버거 연결 (신뢰된 키보드 이벤트 전송용)
+    await attachDebugger(tab.id);
+
+    await sendMessageToTab(tab.id, { type: "DO_POSTING", payload: { posting } });
   } catch (err) {
     isPosting = false;
     await saveState({ status: "error", error: String(err.message || "블로그 이동 실패") });
-    sendResponse({ success: false, error: String(err.message) });
   }
 }
 
@@ -311,6 +335,47 @@ async function sendMessageToTab(tabId, message, retries = 5, delayMs = 2000) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ============================================================
+// chrome.debugger — 신뢰된 이벤트 전송
+// ============================================================
+async function attachDebugger(tabId) {
+  if (debuggerTabId === tabId) return;
+  try {
+    await chrome.debugger.attach({ tabId }, "1.3");
+    debuggerTabId = tabId;
+  } catch {
+    // DevTools가 이미 연결되어있어도 계속 진행
+    debuggerTabId = tabId;
+  }
+}
+
+function detachDebugger() {
+  if (!debuggerTabId) return;
+  const tabId = debuggerTabId;
+  debuggerTabId = null;
+  chrome.debugger.detach({ tabId }).catch(() => {});
+}
+
+async function cdpPressKey(tabId, key, code, keyCode, modifiers = 0) {
+  await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", {
+    type: "rawKeyDown",
+    key: String(key),
+    code: String(code),
+    windowsVirtualKeyCode: Number(keyCode),
+    nativeVirtualKeyCode: Number(keyCode),
+    modifiers: Number(modifiers),
+  });
+  await sleep(30);
+  await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: String(key),
+    code: String(code),
+    windowsVirtualKeyCode: Number(keyCode),
+    nativeVirtualKeyCode: Number(keyCode),
+    modifiers: Number(modifiers),
+  });
 }
 
 function waitForTabLoad(tabId) {

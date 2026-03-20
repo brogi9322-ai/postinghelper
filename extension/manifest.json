@@ -8,7 +8,9 @@
     "activeTab",
     "scripting",
     "storage",
-    "notifications"
+    "notifications",
+    "debugger",
+    "clipboardWrite"
   ],
 
   "host_permissions": [

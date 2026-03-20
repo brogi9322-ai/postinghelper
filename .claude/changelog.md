@@ -5,6 +5,56 @@
 
 ---
 
+## 2026-03-21
+
+### 네이버 블로그 에디터 입력 — chrome.debugger CDP 방식으로 전면 전환
+- `extension/content/naverblog.js` 전면 재작성
+  - `cdpInsertText()`: SW에 `CDP_INSERT_TEXT` 메시지 → `Input.insertText` CDP 명령 (trusted event)
+  - `cdpPressKey()`, `cdpPressEnter()`, `cdpPressCtrlV()`: SW에 `CDP_PRESS_KEY` 메시지 → `Input.dispatchKeyEvent`
+  - `getBodyNode()`: `.se-section-documentTitle` 제외한 `.__se-node` 탐색
+  - `setTitle()`: 제목 `.__se-node`에 포커스 후 `cdpInsertText()` 호출
+  - `insertImageViaClipboard()`: fetch → PNG 변환 → `navigator.clipboard.write()` → `cdpPressCtrlV()`
+  - `convertToPng()`: canvas API로 blob → image/png 변환
+  - execCommand / InputEvent 방식 완전 제거 (Naver SE ONE이 isTrusted:false 무시하므로)
+- `extension/background/service-worker.js`
+  - `debuggerTabId` 전역 변수 추가
+  - `CDP_INSERT_TEXT`, `CDP_PRESS_KEY` ALLOWED_TYPES에 추가
+  - CDP 메시지 핸들러 추가 (`sender.tab.id`로 대상 탭 식별)
+  - `attachDebugger()`, `detachDebugger()`, `cdpPressKey()` 함수 추가
+  - `handleStartPosting()`: 블로그 탭 로드 후 `attachDebugger()` 호출
+  - POSTING_DONE, ERROR 시 `detachDebugger()` 호출
+- `extension/manifest.json`
+  - permissions에 `"debugger"`, `"clipboardWrite"` 추가
+- **변경 파일**: `extension/content/naverblog.js`, `extension/background/service-worker.js`, `extension/manifest.json`
+
+---
+
+### 리뷰 없는 상품 / 리뷰 이벤트 페이지에서 멈춤 + 오류 수정
+- `extension/content/smartstore.js`
+  - `clickReviewTab()`: `<a>` 태그 제외, `<button>`만 클릭 (링크 클릭으로 페이지 이동 방지)
+  - `collectReviews()`: 리뷰 영역 존재 여부 먼저 확인 후 수집, 페이지네이션을 리뷰 영역 범위 내 버튼으로 한정
+  - `waitForElement()`: 미사용 `reject` 파라미터 제거
+- `extension/background/service-worker.js`
+  - `handleStartPosting()`: `sendResponse` 즉시 호출로 이동 + `return true` 제거 (메시지 채널 닫힘 오류 수정)
+- **변경 파일**: `extension/content/smartstore.js`, `extension/background/service-worker.js`
+
+---
+
+## 2026-03-20
+
+### 블로그 자동 타이핑 수정 — selection 설정 누락 및 선택자 불일치 해결
+- `extension/content/naverblog.js` 전면 수정
+  - `focusWithSelection()` 함수 추가: `win.getSelection()`으로 커서 위치 명시적 설정 (이것 없으면 `execCommand` 미동작)
+  - `getContentEditable()`: `.se-text-paragraph [contenteditable='true']` 최우선 선택자로 추가
+  - `setTitle()`: `.se-section-documentTitle [contenteditable='true']` 선택자 추가, contenteditable 타입이면 `execCommand` 방식 타이핑
+  - `typeText()`: 불필요한 `editorEl` 파라미터 제거
+  - `handlePosting()`: `insertParagraph` 후 `editorDoc.activeElement`로 현재 단락 자동 추적
+- `extension/background/service-worker.js`
+  - `handleStartPosting()`: `chrome.tabs.sendMessage` → `sendMessageToTab()` 변경 (재시도 5회, "Could not establish connection" 오류 수정)
+- **변경 파일**: `extension/content/naverblog.js`, `extension/background/service-worker.js`
+
+---
+
 ## 2026-03-19
 
 ### 텍스트 타이핑 안되는 버그 수정 — iframe document 사용

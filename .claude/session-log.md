@@ -318,6 +318,36 @@
 
 ---
 
+### [35] "리뷰가 없거나 리뷰이벤트 화면에서 한참 멈춰있다가 오류 발생"
+**원인**: `clickReviewTab()`이 `<a>` 태그도 탐색해서 리뷰 이벤트 링크 클릭 → 페이지 이동 → content script 종료 → `sendResponse` 미호출 → `sendMessageToTab` 5회 재시도(10초) 후 오류
+**작업**:
+- `clickReviewTab()`: `<a>` 태그 제외, `<button>`만 허용
+- `collectReviews()`: 리뷰 영역 존재 확인 후 수집, 페이지네이션 버튼을 리뷰 영역 내로 한정
+- `waitForElement()`: 미사용 `reject` 파라미터 제거
+- `handleStartPosting()`: `return true` 제거 (sendResponse 즉시 호출로 변경됐으므로)
+- typecheck ✅ 테스트 14개 ✅
+- **변경 파일**: `extension/content/smartstore.js`, `extension/background/service-worker.js`
+
+---
+
+### [34] "블로그에 올리기 누르면 글이랑 사진이 하나씩 적혀야되는데 전혀 안되고있어"
+**원인**: `typeText()`에서 `execCommand('insertText')` 호출 전 selection이 설정되지 않음 + `getContentEditable()` 선택자가 실제 에디터 요소와 불일치
+**진단 과정**:
+- iframe 구조 확인: `mainFrame` iframe 안에 contenteditable DIV 1개 존재
+- 콘솔에서 `iWin.getSelection()`으로 selection 설정 후 `execCommand('insertText')` 테스트 → 성공
+- 에디터 실제 클래스 확인: 제목 `.se-section-documentTitle`, 본문 `.se-text-paragraph`
+**작업**:
+- `focusWithSelection()` 함수 추가 — `win.getSelection()`으로 selection 명시적 설정
+- `getContentEditable()` — `.se-text-paragraph [contenteditable='true']` 최우선 선택자로 추가
+- `setTitle()` — `.se-section-documentTitle [contenteditable='true']` 선택자 + contenteditable이면 `execCommand` 방식으로 타이핑
+- `typeText()` — 불필요한 `editorEl` 파라미터 제거, selection은 호출 전 `focusWithSelection()`으로 처리
+- `handlePosting()` — `insertParagraph` 후 `editorDoc.activeElement`로 현재 단락 자동 추적
+- service-worker.js — `chrome.tabs.sendMessage` → `sendMessageToTab()` 변경 (재시도 5회)
+- typecheck ✅ 테스트 14개 ✅
+- **변경 파일**: `extension/content/naverblog.js`, `extension/background/service-worker.js`
+
+---
+
 ### [22] "Access to fetch ... blocked by CORS policy" / "vercel 계정 만들었어. 보안 최고로 신경써야돼"
 **작업**: CORS 수정 + 배포 준비 + 보안 지침 강화
 - CORS: `lib/cors.ts` withCors() + OPTIONS 핸들러 적용 (이미 [18]에서 완료)
@@ -329,3 +359,29 @@
   5. Vercel 대시보드에서 환경변수 설정 (`ANTHROPIC_API_KEY`, `BLOB_READ_WRITE_TOKEN`)
 - API 키/토큰은 절대 git에 커밋 금지 — Vercel 대시보드 전용
 - `memory/feedback.md` — 4개 파일 업데이트 규칙 강화 (절대 빠지면 안 됨)
+
+
+## 2026-03-21
+
+---
+
+### [23] "블로그 포스팅 완료가 떴지만 화면에는 아무 글자도 적히지 않았어" + 진단 결과
+**작업**: Naver Smart Editor ONE의 isTrusted 제약 발견 → chrome.debugger CDP 방식으로 전환
+
+**원인 분석**:
+- SE ONE은 자체 내부 상태에서 렌더링하며, 합성 이벤트(`isTrusted: false`)는 모두 무시
+- `execCommand`, `InputEvent('beforeinput')`, DOM 직접 조작 모두 시각적 효과 없음
+- DevTools 콘솔 진단으로 확인: `execCommand` → DOM엔 들어가지만 화면에 안 보임
+- `__se-node` 구조: `.se-section-documentTitle .__se-node` (제목), 본문 `.__se-node` (내용)
+
+**해결책**: `chrome.debugger` API
+- `Input.insertText` — OS 레벨 trusted textInput 이벤트 생성 → SE ONE이 정상 처리
+- `Input.dispatchKeyEvent` — Enter, Ctrl+V 등 특수키 신뢰된 이벤트 전송
+- 이미지: `navigator.clipboard.write()` PNG + `cdpPressCtrlV()` (Ctrl+V 신뢰된 이벤트)
+
+**변경 내용**:
+- `extension/content/naverblog.js`: cdpInsertText/cdpPressKey/insertImageViaClipboard 기반으로 전면 재작성
+- `extension/background/service-worker.js`: attachDebugger/detachDebugger/cdpPressKey + CDP 메시지 핸들러
+- `extension/manifest.json`: "debugger", "clipboardWrite" 권한 추가
+- typecheck ✅ 테스트 14개 ✅
+

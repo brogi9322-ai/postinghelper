@@ -103,6 +103,7 @@ function sanitizeData(data: ShoppingRequest["data"]) {
 // 에이전트 루프
 // ============================================================
 export async function POST(req: NextRequest) {
+  try {
   const body: ShoppingRequest = await req.json();
 
   if (!body.data?.productName) {
@@ -239,4 +240,8 @@ ${JSON.stringify(safe, null, 2)}
   };
 
   return withCors(NextResponse.json({ posting } satisfies PostingResponse));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "서버 오류";
+    return withCors(NextResponse.json({ error: message }, { status: 500 }));
+  }
 }
