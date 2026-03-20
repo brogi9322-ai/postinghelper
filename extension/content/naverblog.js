@@ -148,27 +148,42 @@ async function setTitle(editorDoc, editorWin, title) {
 // 이미지 삽입 — 클립보드 + Ctrl+V (Smart Editor ONE이 자체 처리)
 // ============================================================
 async function insertImageViaClipboard(editorDoc, editorWin, imageUrl) {
+  // URL 유효성 검사
+  if (!imageUrl) { sendProgress(0, "이미지 URL 없음, 건너뜀"); return false; }
+  try { const u = new URL(imageUrl); if (u.protocol !== "https:") return false; } catch { return false; }
+
   try {
+    sendProgress(0, "이미지 다운로드 중...");
     const res = await fetch(imageUrl, { credentials: "omit" });
-    if (!res.ok) return false;
+    if (!res.ok) { sendProgress(0, `이미지 다운로드 실패 (${res.status})`); return false; }
 
     const blob = await res.blob();
     const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!ALLOWED_MIME.includes(blob.type)) return false;
+    if (!ALLOWED_MIME.includes(blob.type)) {
+      sendProgress(0, `지원하지 않는 형식: ${blob.type}`);
+      return false;
+    }
 
-    // 클립보드는 image/png만 안정적으로 지원
+    sendProgress(0, "이미지 클립보드 저장 중...");
     const pngBlob = await convertToPng(blob);
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
-    await sleep(100);
 
+    // 클립보드 쓰기 전 메인 프레임에 포커스 (iframe 포커스 상태에서 clipboard.write 거부 방지)
+    document.body.focus();
+    await sleep(100);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+    await sleep(300);
+
+    sendProgress(0, "이미지 붙여넣기 중...");
     // 본문에 포커스 후 Ctrl+V
     const bodyNode = getBodyNode(editorDoc);
     if (bodyNode) focusWithSelection(bodyNode, editorDoc, editorWin);
-    await sleep(100);
+    await sleep(300);
 
     await cdpPressCtrlV();
+    await sleep(1000); // SE ONE이 이미지 처리할 시간
     return true;
-  } catch {
+  } catch (e) {
+    sendProgress(0, `이미지 삽입 오류: ${e.message}`);
     return false;
   }
 }
